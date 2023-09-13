@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools",
+            "setuptools_scm",
+            "wheel"]
+build-backend = 'setuptools.build_meta'
+    
+[project]
+name = "scregistry"
+version = "0.3"
+authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
+license = {file = "LICENSE.txt"}
+description = "API for accessing the Shared Cloud Registry (scregistry) specification for sharing data in and across clouds"
+readme = "README.md"
+keywords = ["cloud","registry","AWS"]
+classifiers=[
+        "Development Status :: 4 - Beta",
+        "Topic :: Utilities",
+        "License :: OSI Approved :: MIT License",
+        ]
+requires-python = ">=3.8"
+dependencies = [
+    "boto3",
+    "pandas",
+    ]
+
+[project.urls]
+Homepage = "https://heliocloud.org"
+Documentation = "https://heliocloud.org"
+Repository = "https://gitlab.smce.nasa.gov"
