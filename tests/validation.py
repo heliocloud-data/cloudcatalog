@@ -1,5 +1,5 @@
 """
-Validation log for the sciregistry library
+Validation log for the cloudcatalog library
 """
 
 
@@ -262,7 +262,7 @@ class Validator:
         schema = {
             "type": "object",
             "properties": {
-                "CloudMe": {"type": "string"},
+                "CloudCatalog": {"type": "string"},
                 "modification": {
                     "type": "string",
                     "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
@@ -282,7 +282,7 @@ class Validator:
                     },
                 },
             },
-            "required": ["CloudMe", "modification", "registry"],
+            "required": ["CloudCatalog", "modification", "registry"],
             "additionalProperties": False,
         }
 
@@ -332,12 +332,12 @@ class Validator:
                     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                     if "Body" not in response or status != 200:
                         raise FailedS3Get(
-                            f"Failed to get a file registry object. Status: {status}. Response: {response}"
+                            f"Failed to get a cloud catalog object. Status: {status}. Response: {response}"
                         )
             except Exception as e:
                 failed_reg_files += 1
                 logging.warning(
-                    f"Failed to fetch local file registry files for entry {entry['id']}: {e}\n"
+                    f"Failed to fetch local cloud catalog files for entry {entry['id']}: {e}\n"
                 )
         if failed_reg_files == 0:
             logging.info("Loading Local Catalog File Registries Passed.")
