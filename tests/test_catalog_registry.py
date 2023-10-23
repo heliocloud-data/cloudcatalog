@@ -1,5 +1,5 @@
 import pytest
-from cloudme import CatalogRegistry
+from cloudcatalog import CatalogRegistry
 
 
 @pytest.fixture
@@ -7,7 +7,7 @@ def catalog_registry():
     # Actually try to load a real catalog, but then overwrites contents just in case of changes
     cr = CatalogRegistry()
     cr.catalog = {
-        "CloudMe": "0.1",
+        "CloudCatalog": "0.1",
         "modificationDate": "2022-01-01T00:00Z",
         "registry": [
             {

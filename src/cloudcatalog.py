@@ -140,7 +140,7 @@ class UnavailableData(Exception):
     pass
 
 
-class FileRegistry:
+class CloudCatalog:
     """
     Use to work with a specific bucket (obtained from the global catalog) and
     the associated catalog in the bucket.
@@ -156,7 +156,7 @@ class FileRegistry:
         """
         Parameters:
             bucket_name (str): The name of the s3 bucket.
-            cache_folder (str): Folder to store the file registry cache, defaults to bucket_name + '_cache'.
+            cache_folder (str): Folder to store the file catalog cache, defaults to bucket_name + '_cache'.
             cache (optional, defaults to True, bool): Determines if any files should be cached so that S3 pulling
                                                       is not unnecessarily done. If a cache_folder is provided,
                                                       this is forced to true.
@@ -278,7 +278,7 @@ class FileRegistry:
             )
         return entries[0]
 
-    def request_file_registry(
+    def request_cloud_catalog(
         self,
         catalog_id: str,
         start_date: Optional[str] = None,
@@ -286,17 +286,17 @@ class FileRegistry:
         overwrite: bool = False,
     ) -> pd.DataFrame:
         """
-        Request the files in the file registry within the provided times from the s3 bucket.
+        Request the files in the dataset catalog within the provided times from the s3 bucket.
 
         Parameters:
             catalog_id (str): The id of the catalog entry in the s3 bucket.
-            start_date (str): Start date for which file registry is needed (default None). ISO 8601 standard.
-            stop_date (str): End date for which file registry is needed (default None). ISO 8601 standard.
+            start_date (str): Start date for which files are needed (default None). ISO 8601 standard.
+            stop_date (str): End date for which files are needed (default None). ISO 8601 standard.
             overwrite (bool): Overwrite files already cached if within request
                               cache in initilization must have been true.
 
         Returns:
-            A pandas Dataframe containing the requested file registry data.
+            A pandas Dataframe containing the requested dataset catalog.
         """
         # Make dates conform with Restricted ISO 8601 standard
         if start_date[-1] != "Z":
@@ -410,7 +410,7 @@ class FileRegistry:
                     fr_bytes_file.seek(0)
                 else:
                     raise FailedS3Get(
-                        f"Failed to get a file registry object. Status: {stats}. Response: {response}"
+                        f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
                     )
 
                 if filepath is not None:
@@ -447,7 +447,7 @@ class FileRegistry:
 
         frs = pd.concat(frs)
 
-        # Filter file registry dataframe to exact requested dates
+        # Filter catalog dataframe to exact requested dates
         frs["start"] = pd.to_datetime(frs["start"], format="%Y-%m-%dT%H:%M:%SZ")
         frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date)]
 
@@ -455,7 +455,7 @@ class FileRegistry:
 
     @staticmethod
     def stream(
-        file_registry: pd.DataFrame,
+        cloud_catalog: pd.DataFrame,
         process_func: Callable[[BytesIO, str, int], None],
         ignore_faileds3get: bool = False,
     ) -> None:
@@ -463,7 +463,7 @@ class FileRegistry:
         Downloads files from S3 and passes them to a processing function.
 
         Parameters:
-            file_registry (pd.DataFrame): A pandas DataFrame containing the file registry information.
+            cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
             process_func (Callable): A function that takes a BytesIO object, a string representing the
                                      start date of the file, and an integer representing the file size
                                      as arguments.
@@ -472,7 +472,7 @@ class FileRegistry:
         s3_client = boto3.client("s3")
 
         fr_bytes_file = None
-        for _, row in file_registry.iterrows():
+        for _, row in cloud_catalog.iterrows():
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
 
@@ -487,7 +487,7 @@ class FileRegistry:
                 fr_bytes_file.seek(0)
             elif not ignore_faileds3get:
                 raise FailedS3Get(
-                    f"Failed to get a file registry object. Status: {stats}. Response: {response}"
+                    f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
                 )
 
             # Pass the BytesIO object, start date, and file size to the processing function
@@ -496,18 +496,18 @@ class FileRegistry:
 
     @staticmethod
     def stream_uri(
-        file_registry: pd.DataFrame, process_func: Callable[[str, str, int], None]
+        cloud_catalog: pd.DataFrame, process_func: Callable[[str, str, int], None]
     ) -> None:
         """
         Sends S3 URLs to a processing function.
 
         Parameters:
-            file_registry (pd.DataFrame): A pandas DataFrame containing the file registry information.
+            cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
             process_func (Callable): A function that takes a string representing the S3 URL, a string
                                      representing the start date of the file, and an integer representing
                                      the file size as arguments.
         """
-        for _, row in file_registry.iterrows():
+        for _, row in cloud_catalog.iterrows():
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
 
@@ -523,7 +523,7 @@ class EntireCatalogSearch:
         """
         Parameters:
             catalog_url (str, optional): URL of the global catalog, default is None.
-            client_kwargs: Keyword arguments passed to the FileRegistry object.
+            client_kwargs: Keyword arguments passed to the CloudCatalog object.
         """
 
         # Get the global catalog
@@ -536,8 +536,8 @@ class EntireCatalogSearch:
         for entry in entries:
             endpoint = self.global_catalog.get_endpoint(entry["name"], entry["region"])
             try:
-                file_registry = FileRegistry(endpoint, cache=False, **client_kwargs)
-                local_catalog = file_registry.get_catalog()
+                cloud_catalog = CloudCatalog(endpoint, cache=False, **client_kwargs)
+                local_catalog = cloud_catalog.get_catalog()
                 self.combined_catalog.append(local_catalog)
             except Exception as e:
                 logging.debug(

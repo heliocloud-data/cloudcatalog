@@ -2,31 +2,31 @@
 [1 Introduction](#1-intro)<br/>
 [2 Global data registry](#2-dataregistry)<br/>
 [3 Catalog](#3-catalog)<br/>
-[4 File Registry](#4-fileregistry)<br/>
+[4 File Indices](#4-fileindex)<br/>
 [5 Info Metadata](#5-info)<br/>
 <!-- \TOC -->
 
 Version 0.3.5 \| HelioCloud \|
 
-# 1 The Shared Cloud Registry specification for HelioCloud
+# 1 The generalized Cloud Catalog specification for HelioCloud
 
-The Shared Cloud Registry (SCR) specification can be used for sharing datasets across cloud frameworks.
+The shared Cloud Catalog specification can be used for sharing datasets across cloud frameworks.
 
-For HelioCloud, this specification creates a global data registry ('HelioDataRegistry'), maintained at the HDRL GitLab repository, then defines the file registry ('fileRegistry') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
+For HelioCloud, this specification creates a global data registry ('HelioDataRegistry'), maintained at the HDRL GitLab repository, then defines the file catalogs ('cloudCatalog') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
 
-That 'HelioDataRegistry.json' is a JSON file consisting of **name** and **endpoint** and lists buckets as endpoints, not datasets.  Tools can visit each **endpoint** to get the **catalog.json** listing datasets available in that bucket.  The 'fileRegistry' consists of the required index to the actual files, and an optional dataset summary file. The fileRegistry itself is a set of ***<id>_YYYY.csv*** (or csp-zip or parquet) index files, one per year.  The optional summary file is named **<id>.json** file and provides additional potentially searchable metadata.
+That 'HelioDataRegistry.json' is a JSON file consisting of **name** and **endpoint** and lists buckets as endpoints, not datasets.  Tools can visit each **endpoint** to get the **catalog.json** listing datasets available in that bucket.  The 'cloudCatalog' consists of the required index to the actual files, and an optional dataset summary file. The cloudCatalog itself is a set of ***<id>_YYYY.csv*** (or csp-zip or parquet) index files, one per year.  The optional summary file is named **<id>.json** file and provides additional potentially searchable metadata.
 
 ## 1.1 Flow
 
-Findability is through the 'HelioDataRegistry' JSON index of S3 buckets, which leads to the **catalog.json** for each S3 bucket that indicates available datasets, which points to the individual dataset file registry index files **<id>_YYYY.csv** and its optional associated **<id>.info** metadata auxillary file.
+Findability is through the 'HelioDataRegistry' JSON index of S3 buckets, which leads to the **catalog.json** for each S3 bucket that indicates available datasets, which points to the individual dataset file catalog index files **<id>_YYYY.csv** and its optional associated **<id>.info** metadata auxillary file.
 
-(Diagram here)  github.com/whatever/HelioDataRegistry.json -> s3://aplcloud.com/mybucket/catalog.json -> individual dataset fileregistries(.csv)
+(Diagram here)  github.com/whatever/HelioDataRegistry.json -> s3://aplcloud.com/mybucket/catalog.json -> individual dataset file catalogs (.csv)
 
 ![Data Registry Schema](dataRegistry_diagram.png)
 
 Datasets are findable by going to 'HelioDataRegistry.json' to get endpoints, then visiting each S3 endpoint to get the catalog listing of datasets available.
 
-Accessing the actual data involves accessing each dataset's file registry index files. The fileRegistry consists of CSV files, one per year. Therefore, a user has the choice to:
+Accessing the actual data involves accessing each dataset's catalog index files. The cloudCatalog consists of CSV files, one per year. Therefore, a user has the choice to:
 * (a) download the CSV file
 * (b) use our provided Python API to fetch a subset of the CSV file, by date range
 * (c) use AWS Athena to run queries on the CSV file
@@ -43,7 +43,7 @@ Periodic updates to datasets go into an upload bucket.  The process is generally
 
 ## 1.4 Scope
 
-We will produce Python tools that fit this API; a web form or similar tool for users to register datasets; automation to move datasets from an upload bucket to the data buckets; scripts to generate the AWS Inventory and compare against a user-provided Manifest; a sample use of Athena against the fileregistry for queries.
+We will produce Python tools that fit this API; a web form or similar tool for users to register datasets; automation to move datasets from an upload bucket to the data buckets; scripts to generate the AWS Inventory and compare against a user-provided Manifest; a sample use of Athena against the file catalogs for queries.
 
 This meets requirements 1, 4, 5, 6, 7 and 11 from the user stories/requirements document,, and opens up 9 (current scope is data be findable, whereas item 9 adds searchability).
 
@@ -108,6 +108,7 @@ Globally the catalog.json describes the endpoint with the following items. Note 
 
 * **endpoint** - same as was provided to GlobalDataRegistry.json, an accessble S3 (or equivalent) bucket link
 * **name** - same as was provided to GlobalDataRegistry.json, a descriptive name for the dataset.
+* **provider** - same as was provided to GlobalDataRegistry.json, default 'aws', indicates which cloud provider. Included for future federation.
 * **region** - same as was provided to GlobalDataRegistry.json, which AWS region
 * **egress** - one of 'no-egress', 'user-pays', 'egress-allowed', or 'none'
 * **status** - A return code, typically "1200/OK". Site owners can temporarily set this to other values
@@ -120,13 +121,13 @@ Globally the catalog.json describes the endpoint with the following items. Note 
 For each dataset, the catalog entry requires:
 
 * **id** a unique ID for the dataset that follows the ID naming requirements
-* **index** a fully qualified pointer to the object directory containing both the dataset and the required fileRegistry. It MUST start with s3:// or "https://" (or equivalent) end in a terminating '/'.
+* **index** a fully qualified pointer to the object directory containing both the dataset and the required cloudCatalog. It MUST start with s3:// or "https://" (or equivalent) end in a terminating '/'.
 * **start**: string, Restricted ISO 8601 date/time of first record of data in the entire dataset OR the word 'static' for items such as model shapes that lack a time field.
 * **stop**: string, Restricted ISO 8601 date/time of end of the last 
 record of data in the entire dataset OR the word 'static' for items such as model shapes that lack a time field.
 * **modification**: string, Restricted ISO 8601 date/time of last time this dataset was updated
 * **title** a short descriptive title sufficient to identify the dataset and its utility to users
-* **indextype** Defines what format the actual fileRegistry is, one of 'csv', 'csv-zip' or 'parquet'
+* **indextype** Defines what format the actual cloudCatalog is, one of 'csv', 'csv-zip' or 'parquet'
 * **filetype** the file format of the actual data. Must be from the prescribed list of files. 
 
 * **description** optional description for dataset".
@@ -149,7 +150,7 @@ Note, currently this specification is defined around "s3://" architecture with s
 
 The **id** field can only contain alphanumeric characters, dashes, or underscores. No spaces or other characters are allowed.
 
-The **id** field will match the fileRegistry files but does not have to match the sub-bucket names.  The fileRegistry includes the **id**_YYYY.csv file indices and the optional **id**.json metadata file.
+The **id** field will match the cloudCatalog files but does not have to match the sub-bucket names.  The cloudCatalog includes the **id**_YYYY.csv file indices and the optional **id**.json metadata file.
 
 ## 3.2 Data items spanning multiple years
 
@@ -174,6 +175,7 @@ Here is an example catalog, for which only the first item has decided to fill ou
     "version": "0.3",
     "endpoint": "s3://gov-nasa-helio-public/",
     "name": "GSFC HelioCloud",
+    "provider": "aws",
     "region": "us-east-1",
     "egress": "no-egress",
     "contact": "Dr. Contact, dr_contact@example.com",
@@ -238,7 +240,7 @@ Here is an example catalog, for which only the first item has decided to fill ou
 
 Index CSV files must be in the same bucket as the data, but do not have to be in the same sub-bucket or directory as their data.  The catalog points to the index files, and the index files use absolute paths to point to the data items.
 
-This also enables design a collection of datasets, wherein the data in the actual file registry <ID>_<YYYY>.csv files can span sub-buckets. The use of absolute file paths is mandated.
+This also enables design a collection of datasets, wherein the data in the actual file catalog <ID>_<YYYY>.csv files can span sub-buckets. The use of absolute file paths is mandated.
 
 ```
 Example data itself is in:
@@ -250,7 +252,7 @@ Example data itself is in:
 
 ```
 Case 1: Matching
-    file registry locations:
+    file catalog locations:
     	 s3://example/mms1/feeps/mms1_feeps.CSV
     	 s3://example/mms2/feeps/mms2_feeps.CSV
     	 s3://example/mms3/feeps/mms3_feeps.CSV
@@ -259,21 +261,21 @@ Case 1: Matching
 
 ```
 Case 2: Not Matching
-    file registry locations:
+    file catalog locations:
          s3://example/mms_all/feeps/mms_feeps.CSV (contents point to 4 subbuckets)
 ```
 
-The first case matches the idea of a 'dataset' and MUST be provided for any provided dataset.  The second matches the idea of a 'collection' and is supported but not required (i.e. additional extra fileregistry endpoints do not have to match the underlying data structure).
+The first case matches the idea of a 'dataset' and MUST be provided for any provided dataset.  The second matches the idea of a 'collection' and is supported but not required (i.e. additional extra cloudCatalog endpoints do not have to match the underlying data structure).
 
 ## 3.5 Concerns
 
 Concerns were voiced about clashes if multiple people attempt to edit the catalog.json for a bucket at the same time.  Our default HelioCloud will maintain the catalog.json contents in a serverless DynamoDB (which will handle transaction collisions and provide rollback), which then outputs the 'catalog.json' file that users and data requests use.
 
-# 4 File Registry
+# 4 File Catalog
 
-The file registry consists of one index for each year of the dataset in either csv, zipped csv, or parquet format.  The file must be in time sequence and the first three items must be the **start**, **datakey**, and **filesize** fields in that order.
+The file catalog consists of one index for each year of the dataset in either csv, zipped csv, or parquet format.  The file must be in time sequence and the first three items must be the **start**, **datakey**, and **filesize** fields in that order.
 
-The index fileRegistry is a set of CSV or Parquet files named "index"/"id"_YYYY.csv, "index"/"id"_YYYY.csv.zip or "index"/"id"_YYYY.parquet.  For the case of static non-time sequence outputs, the index fileRegistry are named "index"/"id"_static.csv (or .csv.zip or .parquet).
+The index cloudCatalog is a set of CSV or Parquet files named "index"/"id"_YYYY.csv, "index"/"id"_YYYY.csv.zip or "index"/"id"_YYYY.parquet.  For the case of static non-time sequence outputs, the index cloudCatalog are named "index"/"id"_static.csv (or .csv.zip or .parquet).
 
 ## 4.1 Required Items
 
@@ -304,7 +306,7 @@ For 'static' items, since the 'start' field will be the same constant value 'sta
 
 ## 4.4 Accessing
 
-Users have 3 options with the fileRegistry CSV file:
+Users have 3 options with the cloudCatalog CSV file:
 * download it directly and parse yourself,
 * use our Python API (provided) to extract a subset of filehandles from CSV,
 * use AWS Athena for queries
@@ -313,13 +315,13 @@ Users have 3 options with the fileRegistry CSV file:
 
 Unlike a database, yearly index files are both fetchable and parseable. They have a lower cost profile than the equivalent database, reasonably fast access, and allow for client and search programs independent of a specific database implementation.
 
-Using yearly files rather than a single file or a database is to maintain an inexpensive, stateless, easily updated file index.  In AWS, the "S3 Inventory" command can generate a list of filenames and datakeys, or filenames and datakeys since the last time inventory was run. Being able to add to the file registry index files incrementally is easier served if they are chunked into yearly files.
+Using yearly files rather than a single file or a database is to maintain an inexpensive, stateless, easily updated file index.  In AWS, the "S3 Inventory" command can generate a list of filenames and datakeys, or filenames and datakeys since the last time inventory was run. Being able to add to the catalog index files incrementally is easier served if they are chunked into yearly files.
 
 In addition, many use cases for long time baseline datasets will not need to access the entire multi-decadal span of the data, so parsing into years reduces the downloads needed to obtain the indices.
 
 The use of CSV or Parquet also enables AWS Athena searches within the index with little overhead, so long as optional metadata is provided.
 
-## 4.6 Example File Registry
+## 4.6 Example File Catalog
 
 Here is a short minimal CSV example index file.
 
@@ -359,19 +361,19 @@ and the trailing Z is required. Strings with less precision are allowed as per I
 
 # 6 Info Metadata
 
-Each dataset may also include an optional info json file that gives the time range, date last modified, ownership information, and optional additional metadata for that dataset.  The files are by default searchable and selectable by time window.  Additional search capability is not within scope of the file registry per se, but data providers can indicate metadata for adding a search layer.
+Each dataset may also include an optional info json file that gives the time range, date last modified, ownership information, and optional additional metadata for that dataset.  The files are by default searchable and selectable by time window.  Additional search capability is not within scope of the file catalog per se, but data providers can indicate metadata for adding a search layer.
 
-If an <id>.info file exists and lists additional parameters, the resulting file Registry index files must contain those parameters in the same order as expressed in this json file.
+If an <id>.info file exists and lists additional parameters, the resulting catalog index files must contain those parameters in the same order as expressed in this json file.
 
 ## 6.1 Optional Items
 
-* **parameters**: optional list of searchable parameters available in the actual file registry index files
+* **parameters**: optional list of searchable parameters available in the actual catalog index files
 file.
 (* = available from S3 Inventory)
 
 ## 6.2 Example
 
-Here is an example for a sample optional Info json file.  This is used to indicate additional searchable metadata that exists within the file Registry index files, and enables higher searchability in datasets.
+Here is an example for a sample optional Info json file.  This is used to indicate additional searchable metadata that exists within the catalog index files, and enables higher searchability in datasets.
 
 ```javascript
 {

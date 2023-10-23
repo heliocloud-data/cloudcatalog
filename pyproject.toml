@@ -5,13 +5,13 @@ requires = ["setuptools",
 build-backend = 'setuptools.build_meta'
     
 [project]
-name = "scregistry"
+name = "cloudcatalog"
 version = "0.3"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
 license = {file = "LICENSE.txt"}
-description = "API for accessing the Shared Cloud Registry (scregistry) specification for sharing data in and across clouds"
+description = "API for accessing the generalized Cloud Catalog (cloudcatalog) specification for sharing data in and across clouds"
 readme = "README.md"
-keywords = ["cloud","registry","AWS"]
+keywords = ["cloud","index","catalog","AWS"]
 classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Utilities",

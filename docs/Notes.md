@@ -5,12 +5,12 @@ To build this, first install build tools (if not yet done), then build, then tes
 * python -m build
 
 Test the wheel
-* pip install scregistry-*-py3-none-any.whl
+* pip install cloudcatalog-*-py3-none-any.whl
 
 Do a test package upload then install with:
 
 * twine upload -repository testpypi dist/*
-* pip install -i https://test.pypi.org/simple/scregistry==0.3
+* pip install -i https://test.pypi.org/simple/cloudcatalog==0.4
 
 Commit with
 
