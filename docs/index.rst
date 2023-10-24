@@ -1,7 +1,7 @@
-scregistry Documentation
+cloudcatalog Documentation
 ---------------------------------
 
-This is the documentation for scregistry.
+This is the documentation for cloudcatalog.
 
 .. toctree::
    :maxdepth: 2

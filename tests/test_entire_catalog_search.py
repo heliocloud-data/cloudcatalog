@@ -1,5 +1,5 @@
 import pytest
-from cloudme import EntireCatalogSearch
+from cloudcatalog import EntireCatalogSearch
 
 
 @pytest.fixture

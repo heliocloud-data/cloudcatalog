@@ -9,12 +9,12 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "scregistry"
+project = "cloudcatalog"
 copyright = "2023, Johns Hopkins University Applied Physics Laboratory LLC"
 author = "JHUAPL"
 
 # The full version, including alpha/beta/rc tags
-from scregistry import __version__
+from cloudcatalog import __version__
 
 release = __version__
 
