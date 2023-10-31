@@ -6,9 +6,9 @@ build-backend = 'setuptools.build_meta'
     
 [project]
 name = "cloudcatalog"
-version = "0.3"
+version = "0.4"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE.md"}
 description = "API for accessing the generalized Cloud Catalog (cloudcatalog) specification for sharing data in and across clouds"
 readme = "README.md"
 keywords = ["cloud","index","catalog","AWS"]
