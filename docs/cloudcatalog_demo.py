@@ -30,8 +30,6 @@ cat = cr.get_catalog()
 print("get_catalog:",cat)
 reg = cr.get_registry()
 print("get registry:",reg)
-link = cr.get_entries()
-print("get_entries:",link)
 url = cr.get_endpoint("HelioCloud, including SDO")
 print("get_endpoint:", url)
 
