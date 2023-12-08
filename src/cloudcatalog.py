@@ -10,7 +10,110 @@ import logging
 import dateutil
 import re
 from typing import List, Dict, Tuple, Union, Optional, Callable
+from botocore import UNSIGNED
+from botocore.client import Config
 
+# Added handler that first tries S3 anonymous, then tries https/egreess
+def s3url_to_https(s3url):
+    """ Formula is  s3://BUCKET/KEY -> https://BUCKET.s3.amazonaws.com/KEY
+    """
+    mybucket, mykey = s3url_to_bucketkey(s3url)
+    url = "https://" + mybucket + ".s3.amazonaws.com/" + mykey
+    return url
+    
+def s3url_to_bucketkey(s3url):
+    """
+    Extracts the S3 bucket name and file key from an S3 URL.
+
+    S3 paths are weird, bucket + everything else, e.g.
+    s3://b1/b2/b3/t.txt would be bucket b1, file b2/b3/t.txt
+
+    :param s3url: The S3 URL to extract the bucket name and file key from.
+
+    :returns: A tuple containing the S3 bucket name and file key.
+    """
+    # S3 paths are weird, bucket + everything else, e.g.
+    # s3://b1/b2/b3/t.txt would be bucket b1, file b2/b3/t.txt
+    name2 = re.sub(r"s3://", "", s3url)
+    s = name2.split("/", 1)
+    mybucket = s[0]
+    myfilekey = s[1] if len(s) > 1 else ""  # Want None if no key?
+    return mybucket, myfilekey
+    
+def fetch_S3(s3url,unsigned=True,region=None,rawbytes=False, **client_kwargs):
+    # default is JSON, but can return raw bytes
+    #print("Trying S3, unsigned=",unsigned,"region=",region)
+    mybucket, mykey = s3url_to_bucketkey(s3url)
+    #print("Looking for: ",mybucket,mykey)
+    if unsigned:
+        if region != None:
+            s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED),region=region, **client_kwargs)
+        else:
+            s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED), **client_kwargs)
+    else:
+        if region != None:
+            s3_client = boto3.client("s3",region=region, **client_kwargs)
+        else:
+            s3_client = boto3.client("s3", **client_kwargs)
+
+    response = s3_client.get_object(Bucket=mybucket, Key=mykey)
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    #print("  Success S3 unsigned",status)
+    if "Body" in response and status == 200:
+        catalog_bytes = response["Body"].read()
+        if rawbytes:
+            catalog = catalog_bytes
+        else:
+            catalog = json.loads(catalog_bytes)
+    elif status != 200:
+        print("Error, status = ",status)
+    return status, catalog
+
+def fetch_url(s3url,rawbytes=False):
+    # default is JSON, but can return raw bytes
+    httpurl = s3url_to_https(s3url)
+    response = requests.get(httpurl)
+    status = response.status_code
+    if rawbytes:
+        catalog = response.content
+    else:
+        catalog = response.json()
+    return status, catalog
+
+def fetch_S3orURL(s3url,region='us-east-1',rawbytes=False, **client_kwargs):
+    """ To get around vagualities of S3 access, this tries a cascade of:
+    straight fetch of S3 using your existing permissions
+    fetch S3 unsigned/anonymous
+    fetch S3 for a specified region only, defaulting to us-east-1
+    fetch the S3 contents via the AWS-equivalent URL
+    """
+    
+    try:
+        #print("Calling unsigned")
+        status, catalog = fetch_S3(s3url,unsigned=True,rawbytes=rawbytes, **client_kwargs)
+    except:
+        try:
+            #print("Calling signed")
+            status, catalog = fetch_S3(s3url,unsigned=False,rawbytes=rawbytes, **client_kwargs)
+        except:
+            try:
+                #print("Calling region")
+                status, catalog = fetch_S3(s3url, unsigned=True, region=region, rawbytes=rawbytes, **client_kwargs)
+            except:
+                try:
+                    #print("Calling url")
+                    status, catalog = fetch_url(s3url,rawbytes=rawbytes)
+                except:
+                    #print("Cannot fetch catalog, exiting.")
+                    return None
+    if rawbytes:
+        fr_bytes_file = BytesIO()
+        fr_bytes_file.write(catalog)
+        fr_bytes_file.seek(0)
+        return fr_bytes_file
+    else:
+        return catalog
+                        
 
 class CatalogRegistry:
     """Use to work with the the global catalog (catalog of catalogs)."""
@@ -172,6 +275,8 @@ class CloudCatalog:
 
         self.cache = cache
 
+        self.catalog = fetch_S3orURL(self.bucket_name+"/catalog.json",**client_kwargs)
+        """ # original version, added https mod
         # Create a client object with provided kwargs
         self.s3_client = boto3.client("s3", **client_kwargs)
 
@@ -189,7 +294,9 @@ class CloudCatalog:
 
         # Load the content from json
         self.catalog = json.loads(catalog_bytes)
-
+        """
+        
+        
         # Check catalog format assumptions
         if any([key not in self.catalog for key in ["status", "catalog"]]):
             raise KeyError(
@@ -231,8 +338,11 @@ class CloudCatalog:
                 os.mkdir(self.cache_folder)
 
             # Copy the content of the catalog to this file (overwrites)
-            with open(os.path.join(cache_folder, "catalog.json"), "wb") as file:
-                file.write(catalog_bytes)
+            
+            #with open(os.path.join(cache_folder, "catalog.json"), "wb") as file:
+            #    file.write(catalog_bytes)
+            with open(os.path.join(cache_folder, "catalog.json"), "w") as file:
+                json.dump(self.catalog,file, indent=4, ensure_ascii=False)
 
     def get_catalog(self) -> Dict:
         """
@@ -402,6 +512,9 @@ class CloudCatalog:
             ):
                 # May through some errors, NoSuchBucket, ClientError (file may not exists or access denied)
                 # If have ListBucket perms, no such key error will be raised instead of client error
+
+                fr_bytes_file = fetch_S3orURL(self.bucket_name+"/"+loc+filename,rawbytes=True)
+                """ # original
                 response = self.s3_client.get_object(Bucket=bucket_name, Key=loc + filename)
                 status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if "Body" in response and status == 200:
@@ -412,7 +525,8 @@ class CloudCatalog:
                     raise FailedS3Get(
                         f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
                     )
-
+                """
+                
                 if filepath is not None:
                     with open(filepath, "wb") as file:
                         file.write(fr_bytes_file.read())
@@ -469,13 +583,17 @@ class CloudCatalog:
                                      as arguments.
             ignore_faileds3get (bool): A boolean that determines if the FailedS3Get is not thrown.
         """
-        s3_client = boto3.client("s3")
 
+        # original version, added https mod
+        #s3_client = boto3.client("s3")
+
+        
         fr_bytes_file = None
         for _, row in cloud_catalog.iterrows():
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
 
+            """ # original version, added https mod
             # Download the S3 file and read it into a BytesIO object
             response = s3_client.get_object(
                 Bucket=s3_url.split("/")[2], Key="/".join(s3_url.split("/")[3:])
@@ -489,7 +607,8 @@ class CloudCatalog:
                 raise FailedS3Get(
                     f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
                 )
-
+            """
+            fr_bytes_file = fetch_S3orURL(s3_url,rawbytes=True)
             # Pass the BytesIO object, start date, and file size to the processing function
             # start may be a date object so making a string just in case for consistency
             process_func(fr_bytes_file, str(row["start"]), row["filesize"])
