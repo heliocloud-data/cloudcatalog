@@ -547,15 +547,17 @@ class CloudCatalog:
                 inplace=True,
             )
 
-            # assume first column is start, second is key, and third is filesize
+            # assume first column is start, second is stop, third is key, and fourth is filesize
             # only assuming if not found in column names
             # no error will be thrown if one of these missing, but per spec they are required
             if "start" not in fr.columns.values:
                 fr.columns.values[0] = "start"
+            if "stop" not in fr.columns.values:
+                fr.columns.values[1] = "stop"
             if "datakey" not in fr.columns.values:
-                fr.columns.values[1] = "datakey"
+                fr.columns.values[2] = "datakey"
             if "filesize" not in fr.columns.values:
-                fr.columns.values[2] = "filesize"
+                fr.columns.values[3] = "filesize"
 
             frs.append(fr)
 
@@ -563,14 +565,17 @@ class CloudCatalog:
 
         # Filter catalog dataframe to exact requested dates
         frs["start"] = pd.to_datetime(frs["start"], format="%Y-%m-%dT%H:%M:%SZ")
-        frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date)]
+        # mod to add files that span a time interval longer than the requested interval
+        # was 'start date <= file_start & file_start < stop date'
+        # now 'start_date <= file_start & either file_start < stop date | file_end > start_date'
+        frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date) | (frs["stop"] > start_date)]
 
         return frs
 
     @staticmethod
     def stream(
         cloud_catalog: pd.DataFrame,
-        process_func: Callable[[BytesIO, str, int], None],
+        process_func: Callable[[BytesIO, str, str, int], None],
         ignore_faileds3get: bool = False,
     ) -> None:
         """
@@ -579,8 +584,8 @@ class CloudCatalog:
         Parameters:
             cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
             process_func (Callable): A function that takes a BytesIO object, a string representing the
-                                     start date of the file, and an integer representing the file size
-                                     as arguments.
+                                     start date of the file, a string representing the stop date of the file,
+                                     and an integer representing the file size as arguments.
             ignore_faileds3get (bool): A boolean that determines if the FailedS3Get is not thrown.
         """
 
@@ -611,11 +616,11 @@ class CloudCatalog:
             fr_bytes_file = fetch_S3orURL(s3_url,rawbytes=True)
             # Pass the BytesIO object, start date, and file size to the processing function
             # start may be a date object so making a string just in case for consistency
-            process_func(fr_bytes_file, str(row["start"]), row["filesize"])
+            process_func(fr_bytes_file, str(row["start"]), str(row["stop"]), row["filesize"])
 
     @staticmethod
     def stream_uri(
-        cloud_catalog: pd.DataFrame, process_func: Callable[[str, str, int], None]
+        cloud_catalog: pd.DataFrame, process_func: Callable[[str, str, str, int], None]
     ) -> None:
         """
         Sends S3 URLs to a processing function.
@@ -623,7 +628,8 @@ class CloudCatalog:
         Parameters:
             cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
             process_func (Callable): A function that takes a string representing the S3 URL, a string
-                                     representing the start date of the file, and an integer representing
+                                     representing the start date of the file, a string representing the
+                                     stop date of the file, and an integer representing
                                      the file size as arguments.
         """
         for _, row in cloud_catalog.iterrows():
@@ -632,7 +638,7 @@ class CloudCatalog:
 
             # Pass the S3 URL, start date, and file size to the processing function
             # start may be a date object so making a string just in case for consistency
-            process_func(s3_url, str(row["start"]), row["filesize"])
+            process_func(s3_url, str(row["start"]), str(row["stop"]), row["filesize"])
 
 
 class EntireCatalogSearch:
