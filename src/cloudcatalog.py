@@ -537,6 +537,13 @@ class CloudCatalog:
             else:
                 fr = pd.read_csv(filepath)
 
+            #print("Debug, version is ",self.catalog["Cloudy"])
+            if float(self.catalog["Cloudy"]) < 0.5:
+                # spec before 0.5 was start/key/filesize
+                # generate a 'maybe' stop using start time of prior entry
+                col0 = fr.columns[0]
+                fr.insert(1,"stop",fr[col0].shift(-1))
+
             # Handle # if used for the header
             if fr.columns.values[0][:2] == "# ":
                 fr.columns.values[0] = fr.columns.values[0][2:]
@@ -565,6 +572,7 @@ class CloudCatalog:
 
         # Filter catalog dataframe to exact requested dates
         frs["start"] = pd.to_datetime(frs["start"], format="%Y-%m-%dT%H:%M:%SZ")
+        frs["stop"] = pd.to_datetime(frs["stop"], format="%Y-%m-%dT%H:%M:%SZ")
         # mod to add files that span a time interval longer than the requested interval
         # was 'start date <= file_start & file_start < stop date'
         # now 'start_date <= file_start & either file_start < stop date | file_end > start_date'
