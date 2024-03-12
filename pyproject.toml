@@ -6,7 +6,7 @@ build-backend = 'setuptools.build_meta'
     
 [project]
 name = "cloudcatalog"
-version = "0.4"
+version = "0.5"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
 license = {text = "MIT License"}
 description = "API for accessing the generalized Cloud Catalog (cloudcatalog) specification for sharing data in and across clouds"
@@ -25,5 +25,5 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://heliocloud.org"
-Documentation = "https://heliocloud.org"
-Repository = "https://gitlab.smce.nasa.gov"
+Documentation = "https://github.com/heliocloud-data/cloudcatalog"
+Repository = "https://github.com/heliocloud-data/cloudcatalog"
