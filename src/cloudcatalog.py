@@ -253,16 +253,16 @@ class CloudCatalog:
         self,
         bucket_name: str,
         cache_folder: Optional[str] = None,
-        cache: bool = True,
+        cache: bool = False,
         **client_kwargs,
     ) -> None:
         """
         Parameters:
             bucket_name (str): The name of the s3 bucket.
             cache_folder (str): Folder to store the file catalog cache, defaults to bucket_name + '_cache'.
-            cache (optional, defaults to True, bool): Determines if any files should be cached so that S3 pulling
+            cache (optional, defaults to False, bool): Determines if any files should be cached so that S3 pulling
                                                       is not unnecessarily done. If a cache_folder is provided,
-                                                      this is forced to true.
+                                                      this is forced to false because some archives e.g. CDAWeb update frequently.
             client_kwargs: parameters for boto3.client: region_name, aws_acces_key_id, aws_secret_access_key, etc.
         """
         # Remove s3 uri info if provided
@@ -542,7 +542,10 @@ class CloudCatalog:
                 # spec before 0.5 was start/key/filesize
                 # generate a 'maybe' stop using start time of prior entry
                 col0 = fr.columns[0]
-                fr.insert(1,"stop",fr[col0].shift(-1))
+                try:
+                    fr.insert(1,"stop",fr[col0].shift(-1))
+                except:
+                    pass # usually because 'stop' already exists in metadata
 
             # Handle # if used for the header
             if fr.columns.values[0][:2] == "# ":
