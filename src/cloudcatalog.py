@@ -579,7 +579,8 @@ class CloudCatalog:
         # mod to add files that span a time interval longer than the requested interval
         # was 'start date <= file_start & file_start < stop date'
         # now 'start_date <= file_start & either file_start < stop date | file_end > start_date'
-        frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date) | (frs["stop"] > start_date)]
+        #frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date) | (frs["stop"] > start_date)]
+        frs = frs[(frs["stop"] >= start_date) & (frs["start"] < stop_date)]
 
         return frs
 
