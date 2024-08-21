@@ -3,10 +3,10 @@ requires = ["setuptools",
             "setuptools_scm",
             "wheel"]
 build-backend = 'setuptools.build_meta'
-    
+
 [project]
 name = "cloudcatalog"
-version = "0.6"
+version = "0.6.1"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
 license = {text = "MIT License"}
 description = "API for accessing the generalized Cloud Catalog (cloudcatalog) specification for sharing data in and across clouds"
@@ -27,3 +27,7 @@ dependencies = [
 Homepage = "https://heliocloud.org"
 Documentation = "https://github.com/heliocloud-data/cloudcatalog"
 Repository = "https://github.com/heliocloud-data/cloudcatalog"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+addopts = ["--import-mode=importlib",]

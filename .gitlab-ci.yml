@@ -1,0 +1,90 @@
+default:
+  image: python:3.9
+
+stages:
+  - test
+
+# At the momemnt, there are a subset of unit tests that require nodejs
+# to be installed.
+unit-test:
+  stage: test
+  before_script:
+    - mkdir -p public/badges
+  script:
+    - export PYTHONPATH=.
+    - python -m pip install -r requirements.txt
+    - python -m pip install -r requirements-dev.txt
+    - pytest -c pytest-unit.ini --junit-xml=TEST-HelioCloud-cloudcatalog.xml --junit-prefix=HelioCloud-cloudcatalog
+  artifacts:
+    when: always
+    paths:
+      - TEST-HelioCloud-cloudcatalog.xml
+    reports:
+      junit: TEST-HelioCloud-cloudcatalog.xml
+
+# See
+# * https://docs.gitlab.com/ee/ci/testing/test_coverage_visualization.html
+coverage:
+  stage: test
+  script:
+    - export PYTHONPATH=.
+    - python -m pip install -r requirements.txt
+    - python -m pip install -r requirements-dev.txt
+    - coverage run -m pytest -c pytest-unit.ini
+    - coverage report
+    - coverage xml
+    - coverage html
+  coverage: '/(?i)TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    paths:
+      - coverage.xml
+      - htmlcov
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# For static-analysis, we're going to run the analysis once for badge generation
+# and once for generating the codeclimate report, which is required integration
+# with the gitlab pull request.
+#
+# This configuration only runs pylint on the main source files of the project,
+# it excludes the unit and integration test folders as well as the cdk output
+# build folder.
+#
+# See:
+#  * https://pypi.org/project/pylint-gitlab/
+static-analysis:
+  stage: test
+  variables:
+    PYLINT_TEXT_OUTPUT_FILE: 'pylint.txt'
+    PYLINT_SCORE_OUTPUT_FILE: public/pylint.score
+    PYLINT_BADGE_OUTPUT_FILE: 'public/pylint.svg'
+    CODE_CLIMATE_OUTPUT_FILE: 'codeclimate.json'
+  before_script:
+    - mkdir -p public  
+  script:
+    - export PYTHONPATH=.
+    - python -m pip install -r requirements.txt
+    - python -m pip install -r requirements-dev.txt
+    - pylint --exit-zero --output-format=text $(find -type f -name "*.py" ! -path "**/.venv/**" | grep -v '/test/' | grep -v '/cdk.out/') | tee ${PYLINT_TEXT_OUTPUT_FILE}
+    - sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ${PYLINT_TEXT_OUTPUT_FILE} > ${PYLINT_SCORE_OUTPUT_FILE}
+    - anybadge --value=$(cat ${PYLINT_SCORE_OUTPUT_FILE}) --file=${PYLINT_BADGE_OUTPUT_FILE} pylint
+    - pylint --exit-zero --load-plugins=pylint_gitlab --output-format=gitlab-codeclimate $(find -type f -name "*.py" ! -path "**/.venv/**" | grep -v '/test/' | grep -v '/cdk.out/') > ${CODE_CLIMATE_OUTPUT_FILE}
+  artifacts:
+    when: always
+    paths:
+      - ${CODE_CLIMATE_OUTPUT_FILE}
+      - ${PYLINT_TEXT_OUTPUT_FILE}
+      - ${PYLINT_SCORE_OUTPUT_FILE}
+      - ${PYLINT_BADGE_OUTPUT_FILE}
+    reports:
+      codequality: ${CODE_CLIMATE_OUTPUT_FILE}
+
+black:
+  stage: test
+  script:
+    - export PYTHONPATH=.
+    - python -m pip install -r requirements-dev.txt
+    - black --check .
