@@ -8,35 +8,44 @@ or access issues, any of which need to be investigated and fixed.
 
 """
 
+
 def test_hdrl_mms():
-    mmsid = 'mms1_feeps_brst_electron'
-    mmsstart = '2020-02-01T00:00:00Z'
-    mmsstop =   '2020-02-02T00:00:00Z'
-    fr=cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/",cache=False)
-    filekeys_mms = fr.request_cloud_catalog(mmsid,start_date=mmsstart,stop_date=mmsstop)
+    mmsid = "mms1_feeps_brst_electron"
+    mmsstart = "2020-02-01T00:00:00Z"
+    mmsstop = "2020-02-02T00:00:00Z"
+    fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/", cache=False)
+    filekeys_mms = fr.request_cloud_catalog(
+        mmsid, start_date=mmsstart, stop_date=mmsstop
+    )
     print(len(filekeys_mms))
     assert len(filekeys_mms) == 15
 
+
 def test_hdrl_aia():
     aiaid = "aia_0094"
-    aiastart="2010-05-13T00:00:00Z"
-    aiastop="2010-06-30T23:56:00Z"
-    fr=cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/",cache=False)
-    filekeys_aia = fr.request_cloud_catalog(aiaid,start_date=aiastart,stop_date=aiastop)
-    #print(len(filekeys_aia))
+    aiastart = "2010-05-13T00:00:00Z"
+    aiastop = "2010-06-30T23:56:00Z"
+    fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/", cache=False)
+    filekeys_aia = fr.request_cloud_catalog(
+        aiaid, start_date=aiastart, stop_date=aiastop
+    )
+    # print(len(filekeys_aia))
     assert len(filekeys_aia) == 16783
+
 
 def test_hdrl_euv():
     euvid = "euvml_stereoa_171"
-    euvstart="2018-05-13T00:00:00Z"
-    euvstop="2018-12-31T23:56:00Z"
-    fr=cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/",cache=False)
-    filekeys_euv = fr.request_cloud_catalog(euvid,start_date=euvstart,stop_date=euvstop)
-    #print(len(filekeys_euv))
+    euvstart = "2018-05-13T00:00:00Z"
+    euvstop = "2018-12-31T23:56:00Z"
+    fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/", cache=False)
+    filekeys_euv = fr.request_cloud_catalog(
+        euvid, start_date=euvstart, stop_date=euvstop
+    )
+    # print(len(filekeys_euv))
     assert len(filekeys_euv) == 780
+
 
 def test_search():
     mysearch = cloudcatalog.EntireCatalogSearch()
-    ss = mysearch.search_by_id('srvy_ion')
+    ss = mysearch.search_by_id("srvy_ion")
     assert len(ss) == 4
-

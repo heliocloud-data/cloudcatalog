@@ -2,7 +2,6 @@
 Validation log for the cloudcatalog library
 """
 
-
 import json
 import logging
 import os
@@ -66,7 +65,9 @@ class Validator:
             bucket_name = bucket_name.rstrip("/")
 
             try:
-                response = self.s3_client.get_object(Bucket=bucket_name, Key="catalog.json")
+                response = self.s3_client.get_object(
+                    Bucket=bucket_name, Key="catalog.json"
+                )
                 status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if "Body" not in response and status != 200:
                     raise FailedS3Get(
@@ -114,7 +115,9 @@ class Validator:
         if dups == 0:
             logging.info("Catalog name + region uniqueness passed.")
         else:
-            logging.warning(f"Catalog name + region uniqueness failed. Duplicates: {dups}")
+            logging.warning(
+                f"Catalog name + region uniqueness failed. Duplicates: {dups}"
+            )
             success = False
         return success
 
@@ -171,7 +174,10 @@ class Validator:
                         "type": "object",
                         "properties": {
                             "id": {"type": "string", "pattern": "^[a-zA-Z0-9-_]+$"},
-                            "loc": {"type": "string", "pattern": "s3://\S+/.*"},  # support https?
+                            "loc": {
+                                "type": "string",
+                                "pattern": "s3://\S+/.*",
+                            },  # support https?
                             "title": {"type": "string"},
                             "start": {
                                 "type": "string",
@@ -277,7 +283,11 @@ class Validator:
                             "provider": {"type": "string"},
                             "region": {"type": "string"},
                         },
-                        "required": ["endpoint", "name", "region"],  # make provider required?
+                        "required": [
+                            "endpoint",
+                            "name",
+                            "region",
+                        ],  # make provider required?
                         "additionalProperties": False,
                     },
                 },
@@ -294,7 +304,9 @@ class Validator:
             success = False
         return success
 
-    def validate_local_catalog_file_registries(self, local_catalog: Dict[str, Any]) -> None:
+    def validate_local_catalog_file_registries(
+        self, local_catalog: Dict[str, Any]
+    ) -> None:
         """
         Validates local file registries in the provided local catalog.
 
@@ -317,10 +329,14 @@ class Validator:
 
                 def ceil_year(date):
                     return ceil(
-                        date.year + (date - datetime(date.year, 1, 1)).total_seconds() * 3.17098e-8
+                        date.year
+                        + (date - datetime(date.year, 1, 1)).total_seconds()
+                        * 3.17098e-8
                     )
 
-                year_stop_date = ceil_year(dateutil.parser.parse(catalog_stop_date[:-1]))
+                year_stop_date = ceil_year(
+                    dateutil.parser.parse(catalog_stop_date[:-1])
+                )
 
                 bucket_name = loc[5:].split("/", 1)[0]
                 loc = loc[len(bucket_name) + 6 :]
@@ -328,7 +344,9 @@ class Validator:
                 for year in range(year_start_date, year_stop_date):
                     filename = f"{eid}_{year}.{ndxformat}"
 
-                    response = self.s3_client.get_object(Bucket=bucket_name, Key=loc + filename)
+                    response = self.s3_client.get_object(
+                        Bucket=bucket_name, Key=loc + filename
+                    )
                     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                     if "Body" not in response or status != 200:
                         raise FailedS3Get(
@@ -357,7 +375,9 @@ class Validator:
             logging.info(
                 f"Validating local catalog file registries {index} {local_catalog['name']}:"
             )
-            success = success and self.validate_local_catalog_file_registries(local_catalog)
+            success = success and self.validate_local_catalog_file_registries(
+                local_catalog
+            )
         return success
 
     def validate(self) -> None:
