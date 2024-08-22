@@ -31,3 +31,6 @@ Repository = "https://github.com/heliocloud-data/cloudcatalog"
 [tool.pytest.ini_options]
 pythonpath = "src"
 addopts = ["--import-mode=importlib",]
+
+[tool.black]
+include = '\.py'
