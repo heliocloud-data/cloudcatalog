@@ -13,6 +13,11 @@ from typing import List, Dict, Tuple, Union, Optional, Callable
 from botocore import UNSIGNED
 from botocore.client import Config
 
+"""
+To support other clouds, add code to fetch_S3 and s3url_to_https, and modify the variable bucket_prefix in class CloudCatalog.
+
+"""
+
 
 # Added handler that first tries S3 anonymous, then tries https/egreess
 def s3url_to_https(s3url):
@@ -22,7 +27,7 @@ def s3url_to_https(s3url):
     return url
 
 
-def s3url_to_bucketkey(s3url):
+def s3url_to_bucketkey(s3url, bucket_prefix="s3://"):
     """
     Extracts the S3 bucket name and file key from an S3 URL.
 
@@ -35,7 +40,7 @@ def s3url_to_bucketkey(s3url):
     """
     # S3 paths are weird, bucket + everything else, e.g.
     # s3://b1/b2/b3/t.txt would be bucket b1, file b2/b3/t.txt
-    name2 = re.sub(r"s3://", "", s3url)
+    name2 = re.sub(rf"{bucket_prefix}", "", s3url)
     s = name2.split("/", 1)
     mybucket = s[0]
     myfilekey = s[1] if len(s) > 1 else ""  # Want None if no key?
@@ -45,7 +50,8 @@ def s3url_to_bucketkey(s3url):
 def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, **client_kwargs):
     # default is JSON, but can return raw bytes
     # print("Trying S3, unsigned=",unsigned,"region=",region)
-    mybucket, mykey = s3url_to_bucketkey(s3url)
+    bucket_prefix = "s3://"
+    mybucket, mykey = s3url_to_bucketkey(s3url, bucket_prefix=bucket_prefix)
     # print("Looking for: ",mybucket,mykey)
     if unsigned:
         if region != None:
@@ -293,7 +299,8 @@ class CloudCatalog:
             client_kwargs: parameters for boto3.client: region_name, aws_acces_key_id, aws_secret_access_key, etc.
         """
         # Remove s3 uri info if provided
-        if bucket_name.startswith("s3://"):
+        bucket_prefix = "s3://"
+        if bucket_name.startswith(bucket_prefix):
             bucket_name = bucket_name[5:]
         bucket_name = bucket_name.rstrip("/")
 
@@ -305,25 +312,9 @@ class CloudCatalog:
         self.catalog = fetch_S3orURL(
             self.bucket_name + "/catalog.json", **client_kwargs
         )
-        """ # original version, added https mod
-        # Create a client object with provided kwargs
-        self.s3_client = boto3.client("s3", **client_kwargs)
 
-        # Get catalog bytes from S3
-        # May through some errors, NoSuchBucket, ClientError (file may not exists or access denied)
-        # If have ListBucket perms, no such key error will be raised instead of client error
-        response = self.s3_client.get_object(Bucket=self.bucket_name, Key="catalog.json")
-        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-        if "Body" in response and status == 200:
-            catalog_bytes = response["Body"].read()
-        else:
-            raise FailedS3Get(
-                f"Failed to Get Catalog from Bucket. Status: {status}. Response: {response}"
-            )
-
-        # Load the content from json
-        self.catalog = json.loads(catalog_bytes)
-        """
+        if self.catalog == None:
+            raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
 
         # Check catalog format assumptions
         if any([key not in self.catalog for key in ["status", "catalog"]]):
@@ -337,12 +328,6 @@ class CloudCatalog:
 
         # Check catalog entries format assumptions
         for entry in self.catalog["catalog"]:
-            # if 'start' in entry:
-            #    entry['start'] = entry.pop('start')
-            # if 'stop' in entry:
-            #    entry['stop'] = entry.pop('stop')
-            # if 'modification' in entry:
-            #    entry['modification'] = entry.pop('modification')
             missing_keys = [
                 key
                 for key in ["id", "index", "title", "start", "stop"]
@@ -353,8 +338,8 @@ class CloudCatalog:
                     f"Invalid catalog entry. Missing keys ({missing_keys}) in entry: {entry}"
                 )
             loc = entry["index"]
-            # if (not loc.startswith('s3://') and not loc.startswith(f'{bucket_name}/')) or loc[-1] != '/':
-            if not (loc.startswith("s3://") and loc[-1] == "/"):
+
+            if not (loc.startswith(bucket_prefix) and loc[-1] == "/"):
                 raise ValueError(f"Invalid index in catalog entry. index: {loc}")
             # could check if start is less than stop here
 
@@ -368,9 +353,6 @@ class CloudCatalog:
                 os.mkdir(self.cache_folder)
 
             # Copy the content of the catalog to this file (overwrites)
-
-            # with open(os.path.join(cache_folder, "catalog.json"), "wb") as file:
-            #    file.write(catalog_bytes)
             with open(os.path.join(cache_folder, "catalog.json"), "w") as file:
                 json.dump(self.catalog, file, indent=4, ensure_ascii=False)
 
@@ -418,6 +400,35 @@ class CloudCatalog:
             )
         return entries[0]
 
+    def date2datetime(self, start_date):
+        # Make dates conform with Restricted ISO 8601 standard
+        if start_date[-1] != "Z":
+            start_date += "Z"
+        # Convert dates to datetime object
+        if not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", start_date
+        ):
+            raise ValueError(
+                "start_date must follow the format XXXX-XX-XXTXXZ with at least the year, month, day, and hour specified."
+            )
+        start_date = dateutil.parser.parse(start_date[:-1])
+        return start_date
+
+    def ceil_year(self, date):
+        return ceil(
+            date.year + (date - datetime(date.year, 1, 1)).total_seconds() * 3.17098e-8
+        )
+
+    def year_range(self, catalog_start_date, start_date):
+        # assuming Z ends date
+        catalog_year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
+        year_start_date = (
+            catalog_year_start_date
+            if start_date is None
+            else max(catalog_year_start_date, start_date.year)
+        )
+        return year_start_date
+
     def request_cloud_catalog(
         self,
         catalog_id: str,
@@ -438,27 +449,11 @@ class CloudCatalog:
         Returns:
             A pandas Dataframe containing the requested dataset catalog.
         """
-        # Make dates conform with Restricted ISO 8601 standard
-        if start_date[-1] != "Z":
-            start_date += "Z"
-        if stop_date[-1] != "Z":
-            stop_date += "Z"
-        # Convert dates to datetime object
-        if not re.fullmatch(
-            r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", start_date
-        ):
-            raise ValueError(
-                "start_date must follow the format XXXX-XX-XXTXXZ with at least the year, month, day, and hour specified."
-            )
-        if not re.fullmatch(
-            r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", stop_date
-        ):
-            raise ValueError(
-                "stop_date must follow the format XXXX-XX-XXTXXZ with at least the year, month, day, and hour specified."
-            )
-        # dateutil.parser.parse
-        start_date = dateutil.parser.parse(start_date[:-1])
-        stop_date = dateutil.parser.parse(stop_date[:-1])
+
+        # everything else assumes typical time series data
+
+        start_date = self.date2datetime(start_date)
+        stop_date = self.date2datetime(stop_date)
 
         # Check if start date is less or equal than end date
         if stop_date < start_date:
@@ -500,30 +495,8 @@ class CloudCatalog:
                 os.mkdir(path)
 
         # Compute minimum and maximum year from start and end date respectively
-
-        # assuming Z ends date
-        catalog_year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
-        year_start_date = (
-            catalog_year_start_date
-            if start_date is None
-            else max(catalog_year_start_date, start_date.year)
-        )
-
-        def ceil_year(date):
-            return ceil(
-                date.year
-                + (date - datetime(date.year, 1, 1)).total_seconds() * 3.17098e-8
-            )
-
-        # assuming Z ends date
-        catalog_year_stop_date = ceil_year(
-            dateutil.parser.parse(catalog_stop_date[:-1])
-        )
-        year_stop_date = (
-            catalog_year_stop_date
-            if stop_date is None
-            else min(catalog_year_stop_date, ceil_year(stop_date))
-        )
+        year_start_date = self.year_range(catalog_start_date, start_date)
+        year_stop_date = self.year_range(catalog_stop_date, start_date)
 
         # Local or different: Could be same bucket or different bucket
         # not enforcing being same bucket
@@ -534,7 +507,9 @@ class CloudCatalog:
         frs = []
 
         # Loop through all the years
+
         for year in range(year_start_date, year_stop_date):
+
             filename = f"{eid}_{year}.{ndxformat}"
 
             if path is None:
@@ -555,18 +530,6 @@ class CloudCatalog:
                 fr_bytes_file = fetch_S3orURL(
                     self.bucket_name + "/" + loc + filename, rawbytes=True
                 )
-                """ # original
-                response = self.s3_client.get_object(Bucket=bucket_name, Key=loc + filename)
-                status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-                if "Body" in response and status == 200:
-                    fr_bytes_file = BytesIO()
-                    fr_bytes_file.write(response["Body"].read())
-                    fr_bytes_file.seek(0)
-                else:
-                    raise FailedS3Get(
-                        f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
-                    )
-                """
 
                 if filepath is not None:
                     with open(filepath, "wb") as file:
@@ -621,10 +584,6 @@ class CloudCatalog:
         # Filter catalog dataframe to exact requested dates
         frs["start"] = pd.to_datetime(frs["start"], format="%Y-%m-%dT%H:%M:%SZ")
         frs["stop"] = pd.to_datetime(frs["stop"], format="%Y-%m-%dT%H:%M:%SZ")
-        # mod to add files that span a time interval longer than the requested interval
-        # was 'start date <= file_start & file_start < stop date'
-        # now 'start_date <= file_start & either file_start < stop date | file_end > start_date'
-        # frs = frs[(start_date <= frs["start"]) & (frs["start"] < stop_date) | (frs["stop"] > start_date)]
         frs = frs[(frs["stop"] >= start_date) & (frs["start"] < stop_date)]
 
         return frs
@@ -653,22 +612,6 @@ class CloudCatalog:
         for _, row in cloud_catalog.iterrows():
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
-
-            """ # original version, added https mod
-            # Download the S3 file and read it into a BytesIO object
-            response = s3_client.get_object(
-                Bucket=s3_url.split("/")[2], Key="/".join(s3_url.split("/")[3:])
-            )
-            status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if "Body" in response and status == 200:
-                fr_bytes_file = BytesIO()
-                fr_bytes_file.write(response["Body"].read())
-                fr_bytes_file.seek(0)
-            elif not ignore_faileds3get:
-                raise FailedS3Get(
-                    f"Failed to get a cloud catalog object. Status: {stats}. Response: {response}"
-                )
-            """
             fr_bytes_file = fetch_S3orURL(s3_url, rawbytes=True)
             # Pass the BytesIO object, start date, and file size to the processing function
             # start may be a date object so making a string just in case for consistency
