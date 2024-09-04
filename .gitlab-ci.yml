@@ -14,7 +14,7 @@ unit-test:
     - export PYTHONPATH=.
     - python -m pip install -r requirements.txt
     - python -m pip install -r requirements-dev.txt
-    - pytest -c pytest-unit.ini --junit-xml=TEST-HelioCloud-cloudcatalog.xml --junit-prefix=HelioCloud-cloudcatalog
+    - pytest --junit-xml=TEST-HelioCloud-cloudcatalog.xml --junit-prefix=HelioCloud-cloudcatalog
   artifacts:
     when: always
     paths:

@@ -509,7 +509,6 @@ class CloudCatalog:
         # Loop through all the years
 
         for year in range(year_start_date, year_stop_date):
-
             filename = f"{eid}_{year}.{ndxformat}"
 
             if path is None:
