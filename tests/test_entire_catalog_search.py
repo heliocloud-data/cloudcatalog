@@ -46,14 +46,26 @@ def test_search_by_title(search, mock_catalog):
     search.combined_catalog = [mock_catalog]
     results = search.search_by_title("file")
     assert len(results) == 5
-    assert set(entry["id"] for entry in results) == {"file1", "file2", "file3", "file4", "file5"}
+    assert set(entry["id"] for entry in results) == {
+        "file1",
+        "file2",
+        "file3",
+        "file4",
+        "file5",
+    }
 
     # Test searching for a substring that exists in multiple catalogs
     # (per docs, ids are unique, but for testing..)
     search.combined_catalog = [mock_catalog, mock_catalog]
     results = search.search_by_title("file")
     assert len(results) == 10
-    assert set(entry["id"] for entry in results) == {"file1", "file2", "file3", "file4", "file5"}
+    assert set(entry["id"] for entry in results) == {
+        "file1",
+        "file2",
+        "file3",
+        "file4",
+        "file5",
+    }
 
     # Test searching for a substring that doesn't exist
     search.combined_catalog = [mock_catalog]
