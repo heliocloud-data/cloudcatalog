@@ -10,7 +10,8 @@ Test the wheel
 Do a test package upload then install with:
 
 * twine upload -r testpypi dist/*
-* pip install -i https://test.pypi.org/simple/cloudcatalog==0.4
+* pip install --index-url https://test.pypi.org/simple/ cloudcatalog
+
 
 Commit with
 
