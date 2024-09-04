@@ -1,6 +1,6 @@
 ## Developer's Guide
 
-To build this, first install build tools (if not yet done), then build, then test the wheel
+To build this, first install build tools (if not yet done), then build, then test the wheel.  Updated Sept 2024.
 
 * python -m build
 
