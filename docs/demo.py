@@ -1,8 +1,10 @@
-import cloudcatalog
-
 """
+Sample invocation of the cloudcatalog client.
+
 The cloud catalog API is just "import cloudcatalog". It defaults to the global catalog of all known storage buckets (AWS S3 buckets)-- this is an index catalog that points to, basically, all known HelioClouds.
 """
+
+import cloudcatalog
 
 print(
     "\n*** We start with the main usage: a HAPI-like query to get a list of files for a given dataset id, over a given time range"

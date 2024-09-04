@@ -1,3 +1,26 @@
+"""
+CloudCatalog. 'import cloudcatalog'.
+
+This tool is designed for retrieving file catalog (index) files from a
+specific ID entry in a catalog within a bucket. It also includes
+search functionality for searching through all data index catalogs
+found in the bucket list.
+
+# Find all available catalogs
+cr = cloudcatalog.CatalogRegistry()
+print(cr.get_catalog())
+print(cr.get_entries())
+
+# Request a specific data item from the NASA TOPS bucket
+fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/")
+fr_id = 'a_dataset_id_from_the_catalog'
+start_date = '2007-02-01T00:00:00Z'
+stop_date = '2007-03-01T00:00:00Z'
+myfiles = fr.request_cloud_catalog(
+              fr_id, start_date=start_date, end_date=end_date
+          )
+"""
+
 import boto3
 from io import BytesIO
 import pandas as pd
@@ -14,8 +37,8 @@ from botocore import UNSIGNED
 from botocore.client import Config
 
 """
-To support other clouds, add code to fetch_S3 and s3url_to_https, and modify the variable bucket_prefix in class CloudCatalog.
-
+To support other clouds, add code to fetch_S3 and s3url_to_https, and
+modify the variable bucket_prefix in class CloudCatalog.
 """
 
 
@@ -148,18 +171,16 @@ class CatalogRegistry:
     def __init__(self, catalog_url: Optional[str] = None) -> None:
         """
         Parameters:
-            catalog_url: either the environment variable `ROOT_CATALOG_REGISTRY_URL` if it exists
-                         or the smce heliocloud global catalog by default, otherwise the explicitly passed in url.
+            catalog_url: either the environment variable
+                         `ROOT_CATALOG_REGISTRY_URL` if it exists
+                         or the smce heliocloud global catalog by default,
+                         otherwise the explicitly passed in url.
         """
         # Set the catalog URL (env variable or default if not manually provided)
         if catalog_url is None:
             catalog_url = os.getenv("ROOT_CATALOG_REGISTRY_URL")
             if catalog_url is None:
-                # TODO: Edit to real catalog
-                # catalog_url = 'https://git.mysmce.com/heliocloud/heliocloud-data-uploads/-/blob/main/catalog.json'
                 catalog_url = "http://heliocloud.org/catalog/HelioDataRegistry.json"
-                # TODO: Remove ValueError
-                # raise ValueError('No environment variable ROOT_CATALOG_REGISTRY_URL nor was an explicit catalog_url passed in.')
         self.catalog_url = catalog_url
 
         # Load the content from json
@@ -207,7 +228,8 @@ class CatalogRegistry:
         Get the entry names and region of each entry in the registry.
 
         Returns:
-            A list of tuples with the name and region from the global catalog registry.
+            A list of tuples with the name and region from the
+            global catalog registry.
         """
         # Get the name and region of each entry in the catalog
         return [(x["name"], x["region"]) for x in self.catalog["registry"]]
@@ -234,7 +256,8 @@ class CatalogRegistry:
         Parameters:
             name: Name of the endpoint.
             region_prefix (optional, str,): Prefix for a region.
-            force_first (optional, defaults to False, bool): If True, returns the first entry regardless of name+region uniqueness.
+            force_first (optional, defaults to False, bool): If True,
+                  returns the first entry regardless of name+region uniqueness.
 
         Returns:
             The URI of the endpoint.
@@ -262,7 +285,8 @@ class CatalogRegistry:
 
 class FailedS3Get(Exception):
     """
-    A custom exception for any errors relating to s3 that are not already thrown by boto.
+    A custom exception for any errors relating to s3 that are not already
+    thrown by boto.
     """
 
     pass
@@ -270,7 +294,8 @@ class FailedS3Get(Exception):
 
 class UnavailableData(Exception):
     """
-    A custom exception for when the catalog indicates the dataset is unavailable.
+    A custom exception for when the catalog indicates the dataset is
+    unavailable.
     """
 
     pass
@@ -292,11 +317,15 @@ class CloudCatalog:
         """
         Parameters:
             bucket_name (str): The name of the s3 bucket.
-            cache_folder (str): Folder to store the file catalog cache, defaults to bucket_name + '_cache'.
-            cache (optional, defaults to False, bool): Determines if any files should be cached so that S3 pulling
-                                                      is not unnecessarily done. If a cache_folder is provided,
-                                                      this is forced to false because some archives e.g. CDAWeb update frequently.
-            client_kwargs: parameters for boto3.client: region_name, aws_acces_key_id, aws_secret_access_key, etc.
+            cache_folder (str): Folder to store the file catalog cache,
+                                defaults to bucket_name + '_cache'.
+            cache (optional, defaults to False, bool): Determines if any files
+                  should be cached so that S3 pulling
+                  is not unnecessarily done. If a cache_folder is provided,
+                  this is forced to false because some archives
+                  e.g. CDAWeb updates frequently.
+            client_kwargs: parameters for boto3.client:
+                   region_name, aws_acces_key_id, aws_secret_access_key, etc.
         """
         # Remove s3 uri info if provided
         bucket_prefix = "s3://"
@@ -370,7 +399,8 @@ class CloudCatalog:
         Get just the entry id and title of each entry in the catalog.
 
         Returns:
-            A list of tuples with the id and title from the global catalog registry.
+            A list of tuples with the id and title from the
+            global catalog registry.
         """
         # Get the name and region of each entry in the catalog
         return [(x["id"], x["title"]) for x in self.catalog["catalog"]]
@@ -389,7 +419,8 @@ class CloudCatalog:
         Get the entry (with full info) using the given entry_id.
 
         Returns:
-            A list of tuples with the id and title from the global catalog registry.
+            A list of tuples with the id and title from the
+            global catalog registry.
         """
         entries = [x for x in self.catalog["catalog"] if x["id"] == entry_id]
         if len(entries) == 0:
@@ -437,12 +468,15 @@ class CloudCatalog:
         overwrite: bool = False,
     ) -> pd.DataFrame:
         """
-        Request the files in the dataset catalog within the provided times from the s3 bucket.
+        Request the files in the dataset catalog within the provided times
+        from the s3 bucket.
 
         Parameters:
             catalog_id (str): The id of the catalog entry in the s3 bucket.
-            start_date (str): Start date for which files are needed (default None). ISO 8601 standard.
-            stop_date (str): End date for which files are needed (default None). ISO 8601 standard.
+            start_date (str): Start date for which files are needed
+                              (default None). ISO 8601 standard.
+            stop_date (str): End date for which files are needed
+                              (default None). ISO 8601 standard.
             overwrite (bool): Overwrite files already cached if within request
                               cache in initilization must have been true.
 
@@ -489,7 +523,7 @@ class CloudCatalog:
         if self.cache_folder is None:
             path = None
         else:
-            # Create the path for storing cached files and folder if does not exist
+            # Create the path for storing cached files and folder if not exist
             path = os.path.join(self.cache_folder, catalog_id)
             if not os.path.exists(path):
                 os.mkdir(path)
@@ -523,8 +557,8 @@ class CloudCatalog:
                 or overwrite
                 or (filepath is not None and not os.path.exists(filepath))
             ):
-                # May through some errors, NoSuchBucket, ClientError (file may not exists or access denied)
-                # If have ListBucket perms, no such key error will be raised instead of client error
+                # If have ListBucket perms, no such key error will be raised
+                # instead of client error
 
                 fr_bytes_file = fetch_S3orURL(
                     self.bucket_name + "/" + loc + filename, rawbytes=True
@@ -554,7 +588,7 @@ class CloudCatalog:
             if fr.columns.values[0][:2] == "# ":
                 fr.columns.values[0] = fr.columns.values[0][2:]
 
-            # Make column names consistent since not enforcing this spec (as of now)
+            # Make column names consistent since not enforcing this spec
             fr.rename(
                 columns={
                     "start": "start",
@@ -564,9 +598,11 @@ class CloudCatalog:
                 inplace=True,
             )
 
-            # assume first column is start, second is stop, third is key, and fourth is filesize
-            # only assuming if not found in column names
-            # no error will be thrown if one of these missing, but per spec they are required
+            """ assume first column is start, second is stop, third is key,
+                and fourth is filesize
+                only assuming if not found in column names
+                no error will be thrown if one of these missing,
+                but per spec they are required """
             if "start" not in fr.columns.values:
                 fr.columns.values[0] = "start"
             if "stop" not in fr.columns.values:
@@ -597,11 +633,14 @@ class CloudCatalog:
         Downloads files from S3 and passes them to a processing function.
 
         Parameters:
-            cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
-            process_func (Callable): A function that takes a BytesIO object, a string representing the
-                                     start date of the file, a string representing the stop date of the file,
-                                     and an integer representing the file size as arguments.
-            ignore_faileds3get (bool): A boolean that determines if the FailedS3Get is not thrown.
+            cloud_catalog (pd.DataFrame): A pandas DataFrame containing
+                                          the dataset catalog information.
+            process_func (Callable): A function that takes a BytesIO object,
+                         a string representing the start date of the file,
+                         a string representing the stop date of the file, and
+                         an integer representing the file size as arguments.
+            ignore_faileds3get (bool): A boolean that determines if
+                         the FailedS3Get is not thrown.
         """
 
         # original version, added https mod
@@ -612,8 +651,10 @@ class CloudCatalog:
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
             fr_bytes_file = fetch_S3orURL(s3_url, rawbytes=True)
-            # Pass the BytesIO object, start date, and file size to the processing function
-            # start may be a date object so making a string just in case for consistency
+            """ Pass the BytesIO object, start date, and file size to
+                the processing function
+                start may be a date object so making a string just in case
+                for consistency"""
             process_func(
                 fr_bytes_file, str(row["start"]), str(row["stop"]), row["filesize"]
             )
@@ -626,28 +667,34 @@ class CloudCatalog:
         Sends S3 URLs to a processing function.
 
         Parameters:
-            cloud_catalog (pd.DataFrame): A pandas DataFrame containing the dataset catalog information.
-            process_func (Callable): A function that takes a string representing the S3 URL, a string
-                                     representing the start date of the file, a string representing the
-                                     stop date of the file, and an integer representing
-                                     the file size as arguments.
+            cloud_catalog (pd.DataFrame): A pandas DataFrame containing
+                         the dataset catalog information.
+            process_func (Callable): A function that takes
+                         a string representing the S3 URL,
+                         a string representing the start date of the file,
+                         a string representing the stop date of the file, and
+                         an integer representing the file size as arguments.
         """
         for _, row in cloud_catalog.iterrows():
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
 
-            # Pass the S3 URL, start date, and file size to the processing function
-            # start may be a date object so making a string just in case for consistency
+            """ Pass the S3 URL, start date, and file size to
+                the processing function
+                start may be a date object so making a string
+                just in case for consistency"""
             process_func(s3_url, str(row["start"]), str(row["stop"]), row["filesize"])
 
 
 class EntireCatalogSearch:
-    """Use to search through all the catalogs by using the global catalog to get all the local catalogs."""
+    """Use to search through all the catalogs by using the global catalog
+    to get all the local catalogs."""
 
     def __init__(self, catalog_url: Optional[str] = None, **client_kwargs):
         """
         Parameters:
-            catalog_url (str, optional): URL of the global catalog, default is None.
+            catalog_url (str, optional): URL of the global catalog,
+                        default is None.
             client_kwargs: Keyword arguments passed to the CloudCatalog object.
         """
 
@@ -681,7 +728,8 @@ class EntireCatalogSearch:
         Search the combined catalog by ID.
 
         Parameters:
-            catalog_id_substr (str): The catalog ID to search for. Can be an ID prefix.
+            catalog_id_substr (str): The catalog ID to search for.
+                                     Can be an ID prefix.
 
         Returns:
             A list of matching catalog entries.
@@ -720,7 +768,8 @@ class EntireCatalogSearch:
             keywords (List[str]): A list of keywords to search for.
 
         Returns:
-            A list of matching catalog entries, sorted by the most matching keywords.
+            A list of matching catalog entries,
+            sorted by the most matching keywords.
         """
         entry_counts = []
         for catalog in self.combined_catalog:
