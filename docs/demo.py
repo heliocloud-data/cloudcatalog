@@ -1,7 +1,10 @@
-"""
-Sample invocation of the cloudcatalog client.
+"""Sample invocation of the cloudcatalog client.
 
-The cloud catalog API is just "import cloudcatalog". It defaults to the global catalog of all known storage buckets (AWS S3 buckets)-- this is an index catalog that points to, basically, all known HelioClouds.
+The cloud catalog API is just "import cloudcatalog". It defaults to
+the global catalog of all known storage buckets (AWS S3 buckets)--
+this is an index catalog that points to, basically, all known
+HelioClouds.
+
 """
 
 import cloudcatalog
@@ -39,8 +42,14 @@ print("get_endpoint:", url)
 
 """
 Searching for data with EntireCatalogSearch
-This initial search accesses each HelioCloud's specific data holdings to create what you probably want, which is a list of all datasets available within the entire HelioCloud ecosystem.
-We include an example of a down or de-registered catalog to emphasize this index catalog points to HelioClouds, but doesn't manage them.
+
+This initial search accesses each HelioCloud's specific data holdings
+to create what you probably want, which is a list of all datasets
+available within the entire HelioCloud ecosystem.
+
+We include an example of a down or de-registered catalog to emphasize
+this index catalog points to HelioClouds, but doesn't manage them.
+
 """
 pause = input("(hit enter to continue)")
 print("\n*** Sample searches (requires an AWS account currently)")

@@ -21,18 +21,18 @@ myfiles = fr.request_cloud_catalog(
           )
 """
 
-import boto3
 from io import BytesIO
-import pandas as pd
-import os
 from datetime import datetime
 from math import ceil
+from typing import List, Dict, Tuple, Union, Optional, Callable
+import os
 import json
 import requests
 import logging
 import dateutil
 import re
-from typing import List, Dict, Tuple, Union, Optional, Callable
+import pandas as pd
+import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
