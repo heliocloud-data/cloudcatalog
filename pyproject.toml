@@ -9,7 +9,7 @@ name = "cloudcatalog"
 version = "1.0.0"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
 license = {text = "MIT License"}
-description = "API for accessing the generalized Cloud Catalog (cloudcatalog) specification for sharing data in and across clouds"
+description = "API for accessing the generalized CloudCatalog (cloudcatalog) specification for sharing data in and across clouds"
 readme = "README.md"
 keywords = ["cloud","index","catalog","AWS"]
 classifiers=[

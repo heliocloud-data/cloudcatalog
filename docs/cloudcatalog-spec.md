@@ -12,9 +12,9 @@ Version 1.0.0 \| HelioCloud \|
 
 The shared Cloud Catalog specification can be used for sharing datasets across cloud frameworks as well as exposing cloud archives outside of the cloud.
 
-For HelioCloud, this specification creates a global data registry of publicly-accessible disks ('HelioDataRegistry'), maintained at the HDRL HelioCloud.org website. Individual dataset owners then define their dataset file catalogs ('cloudCatalog') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
+For HelioCloud, this specification creates a global data registry of publicly-accessible disks ('HelioDataRegistry'), maintained at the HDRL HelioCloud.org website. Individual dataset owners then define their dataset file catalogs ('CloudCatalog') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
 
-That global 'HelioDataRegistry.json' is a minimal JSON file that only lists buckets (disks) that contain one or more dataset.  It consists of **name** and **endpoint** and lists buckets as endpoints, not datasets.  Tools for fetching individual dataset indices visit each **endpoint** to get the cloudCatalog-format **catalog.json** listing datasets available in that bucket.  These 'cloudCatalog' consist of the required index to the actual files, and an optional dataset summary file. The cloudCatalog itself is a set of ***<id>_YYYY.csv*** (or csp-zip or parquet) index files, one per year.  The optional summary file is named **<id>.json** file and provides additional potentially searchable metadata.
+That global 'HelioDataRegistry.json' is a minimal JSON file that only lists buckets (disks) that contain one or more dataset.  It consists of **name** and **endpoint** and lists buckets as endpoints, not datasets.  Tools for fetching individual dataset indices visit each **endpoint** to get the CloudCatalog-format **catalog.json** listing datasets available in that bucket.  These 'CloudCatalog' consist of the required index to the actual files, and an optional dataset summary file. The CloudCatalog itself is a set of ***<id>_YYYY.csv*** (or csp-zip or parquet) index files, one per year.  The optional summary file is named **<id>.json** file and provides additional potentially searchable metadata.
 
 ## 1.1 Flow
 
@@ -27,7 +27,7 @@ http://heliocloud.org/catalog/HelioDataRegistry.json -> s3://aplcloud.com/mybuck
 
 For scientists, datasets are findable by going to 'HelioDataRegistry.json' to get endpoints, then visiting each S3 endpoint to get the catalog listing of datasets available.  There is also a search function in the Python client.
 
-Accessing the actual data involves accessing each dataset's catalog index files. The cloudCatalog consists of CSV files, one per year. Therefore, a user has the choice to:
+Accessing the actual data involves accessing each dataset's catalog index files. The CloudCatalog consists of CSV files, one per year. Therefore, a user has the choice to:
 * (a) directly download the CSV index file(s)
 * (b) use our provided Python API to fetch a subset of the CSV file, by date range
 * (c) use AWS Athena to run queries on the CSV file
@@ -110,13 +110,13 @@ Globally the catalog.json describes the endpoint with the following items. Note 
 For each dataset, the catalog entry requires:
 
 * **id** a unique ID for the dataset that follows the ID naming requirements
-* **index** a fully qualified pointer to the object directory containing both the dataset and the required cloudCatalog. It MUST start with s3:// or "https://" (or equivalent) end in a terminating '/'.
+* **index** a fully qualified pointer to the object directory containing both the dataset and the required CloudCatalog. It MUST start with s3:// or "https://" (or equivalent) end in a terminating '/'.
 * **start**: string, Restricted ISO 8601 date/time of first record of data in the entire dataset. For model or other data that lack a time field, use the time stamp of the model creation date.
 * **stop**: string, Restricted ISO 8601 date/time of end of the last 
 record of data in the entire dataset. For model or other data that lack a time field, use the time stamp of the model creation date.
 * **modification**: string, Restricted ISO 8601 date/time of last time this dataset was updated
 * **title** a short descriptive title sufficient to identify the dataset and its utility to users
-* **indextype** Defines what format the actual cloudCatalog is, one of 'csv', 'csv-zip' or 'parquet'
+* **indextype** Defines what format the actual CloudCatalog is, one of 'csv', 'csv-zip' or 'parquet'
 * **filetype** the file format of the actual data. Must be from the prescribed list of files. 
 
 * **description** optional description for dataset".
@@ -139,7 +139,7 @@ Note, currently this specification is defined around "s3://" architecture with s
 
 The **id** field can only contain alphanumeric characters, dashes, or underscores. No spaces or other characters are allowed.  **id** should be unique across the HelioCloud network (to avoid namespace clashes, e.g. multiple datasets called '0094A' are to be avoided.)
 
-The **id** field will match the cloudCatalog files but does not have to match the sub-bucket names.  The cloudCatalog includes the **id**_YYYY.csv file indices and the optional **id**.json metadata file.
+The **id** field will match the CloudCatalog files but does not have to match the sub-bucket names.  The CloudCatalog includes the **id**_YYYY.csv file indices and the optional **id**.json metadata file.
 
 ## 3.2 Data items spanning multiple years
 
@@ -251,7 +251,7 @@ Case 2: Not Matching
          s3://example/mms_all/feeps/mms_feeps.CSV (contents point to 4 subbuckets)
 ```
 
-The first case matches the idea of a 'dataset' and MUST be provided for any provided dataset.  The second matches the idea of a 'collection' and is supported but not required (i.e. additional extra cloudCatalog endpoints do not have to match the underlying data structure).
+The first case matches the idea of a 'dataset' and MUST be provided for any provided dataset.  The second matches the idea of a 'collection' and is supported but not required (i.e. additional extra CloudCatalog endpoints do not have to match the underlying data structure).
 
 ## 3.5 Concerns
 
@@ -261,7 +261,7 @@ Concerns were voiced about clashes if multiple people attempt to edit the catalo
 
 The file catalog consists of one index for each year of the dataset in either csv, zipped csv, or parquet format.  The file must be in time sequence and the first four items must be the **start**, **stop**, **datakey**, and **filesize** fields in that order.
 
-The index cloudCatalog is a set of CSV or Parquet files named "index"/"id"_YYYY.csv, "index"/"id"_YYYY.csv.zip or "index"/"id"_YYYY.parquet.  For the case of static (not time series) outputs, the index cloudCatalog still use the "id"_YYYY.csv, where YYYY is based on the time stamp of when the model was generated.
+The index CloudCatalog is a set of CSV or Parquet files named "index"/"id"_YYYY.csv, "index"/"id"_YYYY.csv.zip or "index"/"id"_YYYY.parquet.  For the case of static (not time series) outputs, the index CloudCatalog still use the "id"_YYYY.csv, where YYYY is based on the time stamp of when the model was generated.
 
 ## 4.1 Required Items
 
@@ -289,7 +289,7 @@ Any optional parameters from the above list or the info JSON must be in the same
 
 ## 4.4 Accessing
 
-Users have 3 options with the cloudCatalog CSV file:
+Users have 3 options with the CloudCatalog CSV file:
 * download it directly and parse yourself,
 * use our Python API (provided) to extract a subset of filehandles from CSV,
 * use AWS Athena for queries
@@ -376,7 +376,7 @@ Here is an example for a sample optional Info json file.  This is used to indica
 
 ## 7.0 For Modelers
 
-Models can also be made available with cloudCatalog. In this case we still use timestamps, but the meaning shifts from 'when data was taken' to 'when model was generated'.  Usage is identical.  For example: A hypothetical set of fluxrope models created last week would be listed in an index file e.g. “fluxrope_2024.csv”.  And each entry in the file might be something like this hypothetical case.  “Sandy created a fluxrope model at 0 and 90 deg rotation on Sept 1.  Later, he ran a higher resolution 0 deg run’.  Here I decided to also add ‘resolution’ as a variable cloudcatalog can return in the pandas frame.
+Models can also be made available with CloudCatalog. In this case we still use timestamps, but the meaning shifts from 'when data was taken' to 'when model was generated'.  Usage is identical.  For example: A hypothetical set of fluxrope models created last week would be listed in an index file e.g. “fluxrope_2024.csv”.  And each entry in the file might be something like this hypothetical case.  “Sandy created a fluxrope model at 0 and 90 deg rotation on Sept 1.  Later, he ran a higher resolution 0 deg run’.  Here I decided to also add ‘resolution’ as a variable CloudCatalog can return in the pandas frame.
 
 ```
 # created, (ignore), model key, resolution
@@ -385,4 +385,4 @@ Models can also be made available with cloudCatalog. In this case we still use t
 '2024-09-28T00:00:00Z','2024-09-28T00:00:00Z','s3://mybucket/fluxrope_0deg_1024x1024_v01.cdf','246000', 1024
 ```
 
-Since cloudcatalog just returns a pandas frame of file pointers, the user can then easily grab the most recent one stored etc (or an earlier one if they are trying to compare different model runs).
+Since the 'cloudcatalog' client just returns a pandas frame of file pointers, the user can then easily grab the most recent one stored etc (or an earlier one if they are trying to compare different model runs).

@@ -1,8 +1,8 @@
-# Cloud Catalog (cloudcatalog) Tool
+# CloudCatalog (cloudcatalog) Tool
 This tool is designed for retrieving file catalog (index) files from a specific ID entry in a catalog within a bucket. It also includes search functionality for searching through all data index catalogs found in the bucket list.
 
 ## Use Case
-Suppose there is a mission on S3 that follows the HelioCloud 'Cloud Catalog' specification, and you want to obtain specific files from this mission.
+Suppose there is a mission on S3 that follows the HelioCloud 'CloudCatalog' specification, and you want to obtain specific files from this mission.
 
 ### Initial Setup and Global Catalog
 First, install the tool if it has not been already installed. Then, import the tool into a script or shell. You will likely want to search the global catalog to find the specific bucket/catalog containing the data catalog files.
