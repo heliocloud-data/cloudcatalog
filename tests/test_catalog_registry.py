@@ -79,7 +79,10 @@ def test_get_endpoint(catalog_registry, name, region_prefix, force_first):
 
 @pytest.mark.parametrize(
     "name, region_prefix, force_first",
-    [("GSFC HelioCloud Public Temp", "", False), ("GSFC HelioCloud Public Temp", "us-east", False)],
+    [
+        ("GSFC HelioCloud Public Temp", "", False),
+        ("GSFC HelioCloud Public Temp", "us-east", False),
+    ],
 )
 def test_get_endpoint(catalog_registry, name, region_prefix, force_first):
     with pytest.raises(ValueError):

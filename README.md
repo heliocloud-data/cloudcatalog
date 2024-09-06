@@ -1,8 +1,8 @@
-# Cloud Catalog (cloudcatalog) Tool
+# CloudCatalog (cloudcatalog) Tool
 This tool is designed for retrieving file catalog (index) files from a specific ID entry in a catalog within a bucket. It also includes search functionality for searching through all data index catalogs found in the bucket list.
 
 ## Use Case
-Suppose there is a mission on S3 that follows the HelioCloud 'Cloud Catalog' specification, and you want to obtain specific files from this mission.
+Suppose there is a mission on S3 that follows the HelioCloud 'CloudCatalog' specification, and you want to obtain specific files from this mission.
 
 ### Initial Setup and Global Catalog
 First, install the tool if it has not been already installed. Then, import the tool into a script or shell. You will likely want to search the global catalog to find the specific bucket/catalog containing the data catalog files.
@@ -46,17 +46,17 @@ print(fr.get_entries())
 # also save the downloaded file index
 fr_id = 'a_dataset_id_from_the_catalog'
 start_date = '2007-02-01T00:00:00Z'  # A ISO 8601 standard time and a valid time witin the mission/file-index
-end_date = None  # A ISO 8601 standard time or None if want all the file indices after start_date
+stop_date = None  # A ISO 8601 standard time or None if want all the file indices after start_date
 myfiles = fr.request_cloud_catalog(fr_id, start_date=start_date, end_date=end_date, overwrite=False)
 ```
 
 ### Streaming Data from the File Catalog
-You now have a pandas DataFrame with startdate, key, and filesize for all the files of the mission within your specified start and end dates. From here, you can use the key to stream some of the data through EC2, a Lambda, or other processing methods.
+You now have a pandas DataFrame with startdate, stopdate, key, and filesize for all the files of the mission within your specified start and end dates. From here, you can use the key to stream some of the data through EC2, a Lambda, or other processing methods.
 
 This tool also offers a simple function for streaming the data once the file catalog is obtained:
 
 ```python
-cloudcatalog.CloudCatalog.stream(cloud_catalog, lambda bfile, startdate, filesize: print(len(bo.read()), filesize))
+cloudcatalog.CloudCatalog.stream(cloud_catalog, lambda bfile, startdate, stopdate, filesize: print(len(bo.read()), filesize))
 ```
 
 ### Searching the Entire Catalog

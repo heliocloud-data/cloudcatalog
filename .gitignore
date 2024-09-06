@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# cloud catalog common caches
+*_cache/
+src/*_cache/
+
+# emacs save files
+*~
+
+# my junk folder
+junk/
+
 # C extensions
 *.so
 
