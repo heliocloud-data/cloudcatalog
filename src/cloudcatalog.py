@@ -338,9 +338,7 @@ class CloudCatalog:
 
         self.cache = cache
 
-        self.catalog = fetch_S3orURL(
-            self.bucket_name + "/catalog.json", **client_kwargs
-        )
+        self.catalog = fetch_S3orURL(bucket_name + "/catalog.json", **client_kwargs)
 
         if self.catalog == None:
             raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
@@ -617,8 +615,34 @@ class CloudCatalog:
         frs = pd.concat(frs)
 
         # Filter catalog dataframe to exact requested dates
-        frs["start"] = pd.to_datetime(frs["start"], format="%Y-%m-%dT%H:%M:%SZ")
-        frs["stop"] = pd.to_datetime(frs["stop"], format="%Y-%m-%dT%H:%M:%SZ")
+        try:
+            frs["start"] = pd.to_datetime(
+                frs["start"], format="%Y-%m-%dT%H:%M:%S.%fZ", exact=False
+            )
+        except:
+            try:
+                frs["start"] = pd.to_datetime(
+                    frs["start"], format="%Y-%m-%dT%H:%M:%SZ", exact=False
+                )
+            except:
+                frs["start"] = pd.to_datetime(
+                    frs["start"], format="%Y-%m-%dT%H:%MZ", exact=False
+                )
+        try:
+            frs["stop"] = pd.to_datetime(
+                frs["stop"], format="%Y-%m-%dT%H:%M:%S.%fZ", exact=False
+            )
+        except:
+            try:
+                frs["stop"] = pd.to_datetime(
+                    frs["stop"], format="%Y-%m-%dT%H:%M:%SZ", exact=False
+                )
+            except:
+                frs["stop"] = pd.to_datetime(
+                    frs["stop"], format="%Y-%m-%dT%H:%MZ", exact=False
+                )
+        # frs["start"] = pd.to_datetime(frs["start"], format='ISO8601',exact=False)
+        # frs["stop"] = pd.to_datetime(frs["stop"], format='ISO8601',exact=False)
         frs = frs[(frs["stop"] >= start_date) & (frs["start"] < stop_date)]
 
         return frs
