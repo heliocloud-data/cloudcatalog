@@ -153,6 +153,8 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
                 try:
                     # print("Calling url")
                     status, catalog = fetch_url(s3url, rawbytes=rawbytes)
+                    if status == 404:
+                        return None
                 except:
                     # print("Cannot fetch catalog, exiting.")
                     return None
@@ -561,6 +563,9 @@ class CloudCatalog:
                 fr_bytes_file = fetch_S3orURL(
                     self.bucket_name + "/" + loc + filename, rawbytes=True
                 )
+
+                if fr_bytes_file == None:
+                    continue
 
                 if filepath is not None:
                     with open(filepath, "wb") as file:
