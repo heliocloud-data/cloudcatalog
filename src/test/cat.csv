@@ -1,0 +1,4 @@
+id,start,stop,index,modification
+I1_AV_ODG,2069-05-16T11:41:27Z,2069-12-30T09:15:48Z,./cdaweb-test/isis/topside_sounder/ionogram_cdf/isis1/ODG_14N_359E/,2025-03-24T16:33:11Z
+TEST_ODG,2089-05-16T11:41:27Z,2089-12-30T09:15:48Z,./cdaweb-test/whatever/test/,2025-03-24T16:33:11Z
+WI_L2_3MIN_SMS-STICS-NVT-MAGNETOSPHERE,1980-01-01,1981-01-1,./whatever/,2025-03-24
