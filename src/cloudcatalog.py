@@ -45,6 +45,9 @@ modify the variable bucket_prefix in class CloudCatalog.
 # Added handler that first tries S3 anonymous, then tries https/egreess
 def s3url_to_https(s3url):
     """Formula is  s3://BUCKET/KEY -> https://BUCKET.s3.amazonaws.com/KEY"""
+    # allowing https addition
+    if s3url.startswith("http"):
+        return s3url
     mybucket, mykey = s3url_to_bucketkey(s3url)
     url = "https://" + mybucket + ".s3.amazonaws.com/" + mykey
     return url
@@ -368,7 +371,11 @@ class CloudCatalog:
                 )
             loc = entry["index"]
 
-            if not (loc.startswith(bucket_prefix) and loc[-1] == "/"):
+            # allowing https addition
+            if not (
+                (loc.startswith(bucket_prefix) or loc.startswith("http"))
+                and loc[-1] == "/"
+            ):
                 raise ValueError(f"Invalid index in catalog entry. index: {loc}")
             # could check if start is less than stop here
 
@@ -450,14 +457,16 @@ class CloudCatalog:
             date.year + (date - datetime(date.year, 1, 1)).total_seconds() * 3.17098e-8
         )
 
-    def year_range(self, catalog_start_date, start_date):
+    def year_range(self, catalog_start_date, start_date, direction="max"):
         # assuming Z ends date
         catalog_year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
-        year_start_date = (
-            catalog_year_start_date
-            if start_date is None
-            else max(catalog_year_start_date, start_date.year)
-        )
+        if start_date is None:
+            year_start_date = catalog_year_start_date
+        else:
+            if direction == "max":
+                year_start_date = max(catalog_year_start_date, start_date.year)
+            else:
+                year_start_date = min(catalog_year_start_date, start_date.year)
         return year_start_date
 
     def request_cloud_catalog(
@@ -529,20 +538,24 @@ class CloudCatalog:
                 os.mkdir(path)
 
         # Compute minimum and maximum year from start and end date respectively
-        year_start_date = self.year_range(catalog_start_date, start_date)
-        year_stop_date = self.year_range(catalog_stop_date, start_date)
+        year_start_date = self.year_range(
+            catalog_start_date, start_date, direction="max"
+        )
+        year_stop_date = self.year_range(catalog_stop_date, stop_date, direction="min")
 
         # Local or different: Could be same bucket or different bucket
         # not enforcing being same bucket
-        bucket_name = loc[5:].split("/", 1)[0]
-        loc = loc[len(bucket_name) + 6 :]
+        # allowing https addition
+        if not loc.startswith("http"):
+            bucket_name = loc[5:].split("/", 1)[0]
+            loc = loc[len(bucket_name) + 6 :]
 
         # Define empty array for storing data frames
         frs = []
 
         # Loop through all the years
 
-        for year in range(year_start_date, year_stop_date):
+        for year in range(year_start_date, year_stop_date + 1):
             filename = f"{eid}_{year}.{ndxformat}"
 
             if path is None:
@@ -559,10 +572,13 @@ class CloudCatalog:
             ):
                 # If have ListBucket perms, no such key error will be raised
                 # instead of client error
-
-                fr_bytes_file = fetch_S3orURL(
-                    self.bucket_name + "/" + loc + filename, rawbytes=True
-                )
+                # allowing https addition
+                if loc.startswith("http"):
+                    fr_bytes_file = fetch_S3orURL(loc + filename, rawbytes=True)
+                else:
+                    fr_bytes_file = fetch_S3orURL(
+                        self.bucket_name + "/" + loc + filename, rawbytes=True
+                    )
 
                 if fr_bytes_file == None:
                     continue
@@ -578,7 +594,11 @@ class CloudCatalog:
                 fr = pd.read_csv(filepath)
 
             # print("Debug, version is ",self.catalog["Cloudy"])
-            if float(self.catalog["Cloudy"]) < 0.5:
+            try:
+                version = float(self.catalog["Cloudy"])
+            except:
+                version = float(self.catalog["version"])
+            if version < 0.5:
                 # spec before 0.5 was start/key/filesize
                 # generate a 'maybe' stop using start time of prior entry
                 col0 = fr.columns[0]

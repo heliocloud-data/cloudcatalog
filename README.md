@@ -45,7 +45,7 @@ fr = cloudcatalog.CloudCatalog(bucket_name)
 print(fr.get_catalog())
 
 # To find the specific ID we can also get the ID + Title by
-print(fr.get_entries())
+print(fr.get_entries_id_title())
 
 # Now with the ID we can request the catalog index files as a Pandas dataframe
 fr_id = 'a_dataset_id_from_the_catalog'
@@ -74,7 +74,7 @@ mySDOlist = fr.request_cloud_catalog(dataid, start, stop)
 
 ### Add-on example for an MMS fetch of the filelist for all of a specific MMS item (64,383 files)
 ``` python
-dataid = "mms1_feeps_brst_electron"
+dataid = "MMS1_FEEPS_BRST_L2_ELECTRON"
 start, stop = fr.get_entry(dataid)['start'], fr.get_entry(dataid)['stop']
 myMMSlist = fr.request_cloud_catalog(dataid, start, stop)
 ```
