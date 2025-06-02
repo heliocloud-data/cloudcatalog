@@ -6,13 +6,13 @@
 [5 Info Metadata](#5-info)<br/>
 <!-- \TOC -->
 
-Version 1.0.0 \| HelioCloud \|
+Version 1.1.0 \| HelioCloud \|
 
-# 1 The generalized Cloud Catalog specification for HelioCloud
+# 1 The generalized Cloud Catalog specification for large cloud datasets
 
 The shared Cloud Catalog specification can be used for sharing datasets across cloud frameworks as well as exposing cloud archives outside of the cloud.
 
-For HelioCloud, this specification creates a global data registry of publicly-accessible disks ('HelioDataRegistry'), maintained at the HDRL HelioCloud.org website. Individual dataset owners then define their dataset file catalogs ('CloudCatalog') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
+Adopted by HelioCloud, this specification creates a global data registry of publicly-accessible disks ('HelioDataRegistry'), maintained at the HDRL HelioCloud.org website. Individual dataset owners then define their dataset file catalogs ('CloudCatalog') for each dataset, that resides in the S3 (or equivalent) bucket alongside the dataset.
 
 That global 'HelioDataRegistry.json' is a minimal JSON file that only lists buckets (disks) that contain one or more dataset.  It consists of **name** and **endpoint** and lists buckets as endpoints, not datasets.  Tools for fetching individual dataset indices visit each **endpoint** to get the CloudCatalog-format **catalog.json** listing datasets available in that bucket.  These 'CloudCatalog' consist of the required index to the actual files, and an optional dataset summary file. The CloudCatalog itself is a set of ***<id>_YYYY.csv*** (or csp-zip or parquet) index files, one per year.  The optional summary file is named **<id>.json** file and provides additional potentially searchable metadata.
 

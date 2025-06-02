@@ -6,7 +6,7 @@
 [5 Info Metadata](#5-info)<br/>
 <!-- \TOC -->
 
-Version 1.0.0 \| HelioCloud \|
+Version 1.1.0 \| HelioCloud \|
 
 # 1 The generalized Cloud Catalog specification for large cloud datasets
 
