@@ -10,7 +10,7 @@ or access issues, any of which need to be investigated and fixed.
 
 
 def test_hdrl_mms():
-    mmsid = "mms1_feeps_brst_electron"
+    mmsid = "MMS1_FEEPS_BRST_L2_ELECTRON"
     mmsstart = "2020-02-01T00:00:00Z"
     mmsstop = "2020-02-02T00:00:00Z"
     fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/", cache=False)
@@ -18,7 +18,7 @@ def test_hdrl_mms():
         mmsid, start_date=mmsstart, stop_date=mmsstop
     )
     print(len(filekeys_mms))
-    assert len(filekeys_mms) == 15
+    assert len(filekeys_mms) == 14
 
 
 def test_hdrl_aia():
