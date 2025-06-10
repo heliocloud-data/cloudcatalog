@@ -1,0 +1,40 @@
+{
+    "Cloudy": "0.6",
+    "endpoint": "s3://gov-nasa-hdrl-data1/",
+    "name": "GSFC HelioCloud",
+    "contact": "Brian Thomas, brian.a.thomas@nasa.gov",
+    "description": "NASA TOPS ODR datasets",
+    "citation": "tbd",
+    "catalog": [
+        {
+            "id": "WI_EPACT_STEP-DIRECTIONAL-DIFF-HE-FLUX-10MIN",
+            "index": "s3://gov-nasa-hdrl-data1/spdf/cdaweb/wind/epact/step/directional-diff-he-flux-10min/",
+            "title": "Wind EPACT-STEP HE - Mihir Desai (University of Texas, San Antonio)",
+            "start": "1994-11-21T00:03:52.000Z",
+            "stop": "2021-12-12T23:56:42.000Z",
+            "resource": "https://cdaweb.gsfc.nasa.gov/misc/NotesW.html#WI_EPACT_STEP-DIRECTIONAL-DIFF-HE-FLUX-10MIN",
+            "contact": "Mihir Desai",
+            "about": "https://cdaweb.gsfc.nasa.gov/misc/NotesW.html#WI_EPACT_STEP-DIRECTIONAL-DIFF-HE-FLUX-10MIN",
+            "collections": [
+                "CDAWeb"
+            ]
+        },
+        {
+            "id": "WI_L2_3MIN_SMS-STICS-NVT-MAGNETOSPHERE",
+            "index": "s3://gov-nasa-hdrl-data1/spdf/cdaweb/wind/sms/l2/stics_cdf/3min_nvt_magnetosphere/",
+            "title": "Solar Wind and Suprathermal Ion Composition  Instrument, Key Parameters - S. T. Lepri (U of Michigan)",
+            "start": "1995-08-01T00:05:19.000Z",
+            "stop": "2004-04-28T23:55:32.000Z",
+            "resource": "https://cdaweb.gsfc.nasa.gov/misc/NotesW.html#WI_L2_3MIN_SMS-STICS-NVT-MAGNETOSPHERE",
+            "contact": "S. T. Lepri",
+            "about": "https://cdaweb.gsfc.nasa.gov/misc/NotesW.html#WI_L2_3MIN_SMS-STICS-NVT-MAGNETOSPHERE",
+            "collections": [
+                "CDAWeb"
+            ]
+        }
+    ],
+    "status": {
+        "code": 1200,
+        "message": "OK request successful"
+    }
+}
