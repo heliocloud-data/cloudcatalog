@@ -1,4 +1,4 @@
-# To Do
+# To Do (older)
 
 * Create a unit test framework around the current test scripts in test/
 * Document how to invoke pytest (or other framework) for users
