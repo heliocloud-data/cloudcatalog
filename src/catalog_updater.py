@@ -5,7 +5,8 @@ import shutil
 from datetime import datetime
 
 
-def update_catalog_json(json_path, csv_path, output_path):
+def update_catalog_json(json_path, csv_path, output_path,
+                        collections = None):
     if not os.path.exists(json_path) or not os.path.exists(csv_path):
         return False
 
@@ -14,7 +15,6 @@ def update_catalog_json(json_path, csv_path, output_path):
 
     catalog = json_data.setdefault("catalog", [])
     catalog_map = {entry["id"]: entry for entry in catalog}
-
     with open(csv_path, "r", newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -29,20 +29,29 @@ def update_catalog_json(json_path, csv_path, output_path):
                 catalog.append(target)
                 catalog_map[record_id] = target
 
+            has_collections = False
             for key, value in row.items():
                 if key == "id" or value is None or value.strip() == "":
                     continue
 
+                if key == "start" and "start" in catalog_map:
+                    # do not overwrite start times due to bug
+                    continue
+                
                 if key == "collections":
+                    has_collections = True
                     new_collection = value.strip()
                     target_collections = target.setdefault("collections", [])
                     if new_collection not in target_collections:
                         target_collections.append(new_collection)
                 else:
                     target[key] = infer_type(value)
+                    
+            if collections != None and has_collections == False:
+                target["collections"] = collections
 
     with open(output_path, "w") as f:
-        json.dump(json_data, f, indent=2)
+        json.dump(json_data, f, indent=4)
 
     return True
 

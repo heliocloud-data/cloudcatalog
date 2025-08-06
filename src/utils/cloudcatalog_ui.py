@@ -1,46 +1,55 @@
+from itertools import groupby
 import cloudcatalog
 
-search = cloudcatalog.EntireCatalogSearch()
+def cattree(catalog=None, spider=False, noisy=False):
 
-search.search_by_keywords(["mms2", "brst", "apples"])[:3]
-cr = cloudcatalog.CatalogRegistry()
-# for s3disk in cr.get_registry():
-fullset = []
-collection = "CDAWeb"  # None
-for s3disk in cr.catalog["registry"]:
-    print(f"{s3disk['endpoint']},{s3disk['region']}")
-    try:
-        fr = cloudcatalog.CloudCatalog(s3disk["endpoint"], cache=False)
-        items = fr.get_catalog()["catalog"]
-        if collection != None:
-            items = [
-                item
-                for item in items
-                if "collections" in item.keys() and collection in item["collections"]
-            ]
-        if len(items) > 0:
-            labels = [ele["id"] + ": " + ele["title"] for ele in items]
-            spiderset = [[ele["id"], ele["start"], ele["stop"]] for ele in items]
-            fullset += labels
-    except:
-        print(f"{s3disk['endpoint']} not accessible or has no catalogs")
-# print(fullset)
-fullset.sort(key=str.casefold)
-from itertools import groupby
+    if catalog == None:
+        catalog = "http://heliocloud.org/catalog/HelioDataRegistry.json"
 
-res = [list(i) for j, i in groupby(fullset, lambda a: a.split("_")[0].lower())]
-print(len(res))
-for ele in res:
-    groupid = ele[0].split("_")[0]
-    print(f"*{groupid} has {len(ele)} datasets")
+    search = cloudcatalog.EntireCatalogSearch(catalog)
 
-spider = False
+    search.search_by_keywords(["mms2", "brst", "apples"])[:3]
+    cr = cloudcatalog.CatalogRegistry(catalog)
+    # for s3disk in cr.get_registry():
+    fullset = []
+    collection = "CDAWeb"  # None
+    for s3disk in cr.catalog["registry"]:
+        print(f"{s3disk['endpoint']},{s3disk['region']}")
+        try:
+            fr = cloudcatalog.CloudCatalog(s3disk["endpoint"], cache=False)
+            items = fr.get_catalog()["catalog"]
+            if collection != None:
+                items = [
+                    item
+                    for item in items
+                    if "collections" in item.keys() and collection in item["collections"]
+                ]
+            if len(items) > 0:
+                labels = [ele["id"] + ": " + ele["title"] for ele in items]
+                spiderset = [[ele["id"], ele["start"], ele["stop"]] for ele in items]
+                fullset += labels
+        except:
+            print(f"{s3disk['endpoint']} not accessible or has no catalogs")
+    # print(fullset)
+    fullset.sort(key=str.casefold)
 
-if spider:
+    res = [list(i) for j, i in groupby(fullset, lambda a: a.split("_")[0].lower())]
+    print(len(res))
+    for ele in res:
+        groupid = ele[0].split("_")[0]
+        print(f"*{groupid} has {len(ele)} datasets")
+
+    if spider: spiderme(spiderset, fr, noisy)
+    
+def spiderme(spiderset, fr, noisy=True):
+
+    icount = 0
     spiderset.sort()
+    totcount = len(spiderset)
     with open("spiderout.txt", "w") as fout:
         for trio in spiderset:
-            print(trio)
+            icount += 1
+            #print(trio)
             # now handles year skips
             year1 = int(trio[1][:4])
             year2 = int(trio[2][:4])
@@ -55,8 +64,17 @@ if spider:
                     flist = fr.request_cloud_catalog(
                         trio[0], start_date=start, stop_date=end
                     )
+                    mystr = f"{trio[0]}, {iyear}: {len(flist)} entries."
                 except:
-                    pass
+                    mystr = f"Error accessing {trio[0]}, {iyear}"
 
+                fout.writelines(mystr+'\n')
+                if noisy: print(mystr)
                 # fkeys = [item['datakey'] for item in flist]
                 # fout.writelines(fkeys)
+            if icount % 3 == 1: print(f"   (checked {icount} of {totcount})")
+    print(f"Done, checked {icount} of {totcount}")
+                
+if __name__ == "__main__":
+    cattree(spider=True)
+    
