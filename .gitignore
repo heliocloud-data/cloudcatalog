@@ -6,6 +6,7 @@ __pycache__/
 # cloud catalog common caches
 *_cache/
 src/*_cache/
+*.bak
 
 # emacs save files
 *~
