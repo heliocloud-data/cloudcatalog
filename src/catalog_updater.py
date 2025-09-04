@@ -83,6 +83,7 @@ def update_catalog_from_json(json_path = 'catalog.json',
             cat_data[rec_id] = cat_updates[rec_id]
 
     num_tot = len(cat_data.keys())
+    cat_data = [cat_data[key] for key in sorted(cat_data.keys())]
     json_data["catalog"] = cat_data
     vf.version_file_timestamp(json_path)
     with open(json_path, "w") as f:
