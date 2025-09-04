@@ -109,11 +109,11 @@ def update_catalog_from_csv(json_path = 'catalog.json',
                 continue
 
             if rec_id in cat_ids:
-                target = cat_data_ids[rec_id]
+                target = cat_data[rec_id]
             else:
                 target = {"id": rec_id, "title": rec_id, "indextype": "csv"}
-                cat_data.append(target)
-                cat_ids[rec_id] = target
+                cat_ids.append(rec_id)
+                cat_data[rec_id] = target
 
             has_collections = False
             for key, value in row.items():
@@ -136,6 +136,7 @@ def update_catalog_from_csv(json_path = 'catalog.json',
             if collections != None and has_collections == False:
                 target["collections"] = collections
 
+    cat_data = [cat_data[key] for key in sorted(cat_data.keys())]
     json_data["catalog"] = cat_data
     vf.version_file_timestamp(json_path)
     with open(json_path, "w") as f:
@@ -164,5 +165,5 @@ if __name__ == "__main__":
     cfile = "test/cat.csv"
     success = update_catalog_from_json(jfile,ofile)
     print("JSON pdate succeeded." if success else "Update failed: missing input file(s).")
-    #success = update_catalog_from_csv(jfile,cfile)
-    #print("CSV update succeeded." if success else "Update failed: missing input file(s).")
+    success = update_catalog_from_csv(jfile,cfile)
+    print("CSV update succeeded." if success else "Update failed: missing input file(s).")

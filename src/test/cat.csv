@@ -1,4 +1,4 @@
 id,start,stop,index,modification
-changing_telemetry_data,2069-05-16T11:41:27Z,2069-12-30T09:15:48Z,./cdaweb-test/isis/topside_sounder/ionogram_cdf/isis1/ODG_14N_359E/,2025-03-24T16:33:11Z
+changing_telemetry_data,2069-05-16T11:41:27Z,2069-12-30T09:15:48Z,./cdaweb-test/isis/top_sounder/ionogram_cdf/isis1/ODG_14N_359E/,2025-03-24T16:33:11Z
 new_csv_item,2089-05-16T11:41:27Z,2089-12-30T09:15:48Z,./cdaweb-test/whatever/test/,2025-03-24T16:33:11Z
 redundant_archive_data,1998-05-16T11:41:27Z,1998-12-30T09:15:48Z,./cdaweb-test/whatever/test/,2025-03-24T16:33:11Z
