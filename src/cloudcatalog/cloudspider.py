@@ -1,7 +1,7 @@
 from itertools import groupby
 import cloudcatalog
 
-def cattree(catalog=None, spider=False, noisy=False):
+def tree(catalog=None, noisy=False, returnvars=False, printme=True):
 
     if catalog == None:
         catalog = "http://heliocloud.org/catalog/HelioDataRegistry.json"
@@ -14,7 +14,7 @@ def cattree(catalog=None, spider=False, noisy=False):
     fullset = []
     collection = "CDAWeb"  # None
     for s3disk in cr.catalog["registry"]:
-        print(f"{s3disk['endpoint']},{s3disk['region']}")
+        if printme: print(f"{s3disk['endpoint']},{s3disk['region']}")
         try:
             fr = cloudcatalog.CloudCatalog(s3disk["endpoint"], cache=False)
             items = fr.get_catalog()["catalog"]
@@ -29,19 +29,23 @@ def cattree(catalog=None, spider=False, noisy=False):
                 spiderset = [[ele["id"], ele["start"], ele["stop"]] for ele in items]
                 fullset += labels
         except:
-            print(f"{s3disk['endpoint']} not accessible or has no catalogs")
+            if printme: print(f"{s3disk['endpoint']} not accessible or has no catalogs")
     # print(fullset)
     fullset.sort(key=str.casefold)
 
     res = [list(i) for j, i in groupby(fullset, lambda a: a.split("_")[0].lower())]
-    print(len(res))
+    if printme: print(len(res))
     for ele in res:
         groupid = ele[0].split("_")[0]
-        print(f"*{groupid} has {len(ele)} datasets")
+        if printme: print(f"*{groupid} has {len(ele)} datasets")
 
-    if spider: spiderme(spiderset, fr, noisy)
+    if returnvars:
+        return spiderset, fr
     
-def spiderme(spiderset, fr, noisy=True):
+def spider(spiderset = None, fr = None, noisy=True):
+
+    if spiderset == None or fr == None:
+        spiderset, fr = tree(returnvars=True)
 
     icount = 0
     spiderset.sort()
@@ -74,7 +78,23 @@ def spiderme(spiderset, fr, noisy=True):
                 # fout.writelines(fkeys)
             if icount % 3 == 1: print(f"   (checked {icount} of {totcount})")
     print(f"Done, checked {icount} of {totcount}")
-                
+
+def spider_main():
+    import argparse
+    p = argparse.ArgumentParser(prog="cloudcatalog-spider", description="Run the cloudcatalog spider")
+    p.add_argument("--catalog", default=None, help="(optional) catalog loc")
+    args = p.parse_args()
+    spider(tree(catalog=args.catalog))
+
+def tree_main(catalog=None):
+    import argparse
+    p = argparse.ArgumentParser(prog="cloudcatalog-tree", description="Print the cloudcatalog tree")
+    p.add_argument("--catalog", default=None, help="(optional) catalog loc")
+    args = p.parse_args()
+    tree(catalog=catalog,returnvars=False,printme=True)
+
 if __name__ == "__main__":
-    cattree(spider=True)
-    
+    spiderset, fr = tree(returnvars=True,printme=True)
+    yn = input("Spider all datasets to validate (lengthy)? y/n: ")
+    if yn.lower().startswith('y'):
+        spider(spiderset, fr)

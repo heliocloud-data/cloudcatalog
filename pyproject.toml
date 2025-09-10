@@ -45,3 +45,6 @@ include = '\.py'
 cloudcatalog-update-json = "cloudcatalog.updater.catalog_updater:update_json_main"
 cloudcatalog-update-csv = "cloudcatalog.updater.catalog_updater:update_csv_main"
 cloudcatalog-gui = "cloudcatalog.catalogtools.catalog_updater:updater_gui"
+cloudcatalog-tree = "cloudcatalog.cloudspider:tree_main"
+cloudcatalog-spider = "cloudcatalog.cloudspider:spider_main"
+cloudcatalog-manifest2indices = "cloudcatalog.generators:m2i_main"
