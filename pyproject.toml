@@ -6,7 +6,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "cloudcatalog"
-version = "1.1.0"
+version = "1.1.01"
 authors = [ {name = "Johns Hopkins University Applied Physics Laboratory LLC", email = "sandy.antunes@jhuapl.edu"}]
 license = {text = "MIT License"}
 description = "API for accessing the generalized CloudCatalog (cloudcatalog) specification for sharing data in and across clouds"
@@ -28,9 +28,20 @@ Homepage = "https://heliocloud.org"
 Documentation = "https://github.com/heliocloud-data/cloudcatalog"
 Repository = "https://github.com/heliocloud-data/cloudcatalog"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 pythonpath = "src"
 addopts = ["--import-mode=importlib",]
 
 [tool.black]
 include = '\.py'
+
+[project.scripts]
+cloudcatalog-update-json = "cloudcatalog.updater.catalog_updater:update_json_main"
+cloudcatalog-update-csv = "cloudcatalog.updater.catalog_updater:update_csv_main"
+cloudcatalog-gui = "cloudcatalog.catalogtools.catalog_updater:updater_gui"

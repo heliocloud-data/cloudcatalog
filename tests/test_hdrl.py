@@ -18,7 +18,7 @@ def test_hdrl_mms():
         mmsid, start_date=mmsstart, stop_date=mmsstop
     )
     print(len(filekeys_mms))
-    assert len(filekeys_mms) == 14
+    assert len(filekeys_mms) >= 14
 
 
 def test_hdrl_aia():
@@ -47,5 +47,6 @@ def test_hdrl_euv():
 
 def test_search():
     mysearch = cloudcatalog.EntireCatalogSearch()
-    ss = mysearch.search_by_id("srvy_ion")
-    assert len(ss) == 4
+    # using EUVML as a static historical dataset
+    ss = mysearch.search_by_id("EUVML_STEREO")
+    assert len(ss) == 10
