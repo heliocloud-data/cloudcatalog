@@ -28,23 +28,26 @@ def set_presets(manifest='sortedmanifest.csv',
                 errorsfile='errors.lst',
                 xml_path='.',
                 strip_me='pub/data/',
-                ensure_prefix='spdf/cdaweb/data/'):
+                ensure_prefix='spdf/cdaweb/data/',
+                add_prefix='s3://gov-nasa-hdrl-data1/'):
     presets = {
         "manifest" : manifest,
         "coutfile" : coutfile,
         "errorsfile" : errorsfile,
         "xml_path" : xml_path,
         "strip_me" : strip_me,
-        "ensure_prefix" : ensure_prefix
+        "ensure_prefix" : ensure_prefix,
+        "add_prefix" : add_prefix
         }
     return presets
 
 def check_presets(presets):
     safety = True
     for mykey in presets.keys():
-        if not os.path.exists(mykey):
+        print(f"{mykey}: {presets[mykey]}")
+        if mykey == 'manifest' and not os.path.exists(presets[mykey]):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
-            safety = False
+            ###safety = False
     return safety
 
 def dumpline(fout,cache):
@@ -112,7 +115,7 @@ def manifest2indices(presets=None):
         fname, fsize = parseline(line)
         if not endpattern.search(fname):
             continue
-        dataid, filename = cxc.extract_just_dataid(fname,shortprefix=ensure_prefix)
+        dataid, filename = cxc.extract_just_dataid(fname,shortprefix=presets["ensure_prefix"])
         if dataid == None:
             ferr.write(f"{fname}, dataid not found\n")
             ierrors += 1
@@ -131,7 +134,7 @@ def manifest2indices(presets=None):
                 tracker.pop() # no valid new id yet so remove that last bad field
                 pass
             dataid, indexbase, x_regex = cxc.extract_regex(regex_base, regex_pattern, fname)
-            indexbase = cxc.best_indexdir(fname, short_prefix=ensure_prefix)
+            indexbase = cxc.best_indexdir(fname, short_prefix=presets["ensure_prefix"],add_prefix=presets["add_prefix"])
             ztime = cxc.extract_datetime(fname, x_regex, form="str")
             if ztime == None:
                 ferr.write(f"{fname},{x_regex}, date not found\n")
@@ -144,6 +147,8 @@ def manifest2indices(presets=None):
             if DEBUG: print(f"Initiating {dataid} {year} index {foutname}")
             fout = open(foutname,"w")
             fout.write('#start,stop,s3key,filesize\n')
+            if presets["add_prefix"] != None:
+                fname = presets["add_prefix"] + fname
             cache = {'start':ztime,'s3key':fname,'fsize':fsize}
             curryear = year
             currid = dataid
@@ -156,6 +161,8 @@ def manifest2indices(presets=None):
                 continue
             cache['stop']=ztime
             dumpline(fout,cache)
+            if presets["add_prefix"] != None:
+                fname = presets["add_prefix"] + fname
             cache = {'start':ztime,'s3key':fname,'fsize':fsize}
             year = ztime[0:4]
             if year != curryear:
@@ -197,6 +204,9 @@ def m2i_main(argv=None):
     parser.add_argument("--ensure-prefix", dest="ensure_prefix",
                         default="spdf/cdaweb/data/",
                         help="Required prefix to enforce on paths")
+    parser.add_argument("--add-prefix", dest="add_prefix",
+                        default="s3://gov-nasa-hdrl-data1/",
+                        help="Required start to add on all index & file paths")
 
     args = parser.parse_args(argv)
 
@@ -207,6 +217,7 @@ def m2i_main(argv=None):
         xml_path=args.xml_path,
         strip_me=args.strip_me,
         ensure_prefix=args.ensure_prefix,
+        add_prefix=args.add_prefix,
     )
 
     manifest2indices(presets=presets)
