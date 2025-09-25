@@ -23,10 +23,10 @@ import cdaweb_xml_checker as cxc
 
 DEBUG = False
 
-def set_presets(manifest='sortedmanifest.csv',
+def set_presets(manifest='manifest_sorted.csv',
                 coutfile='updates.csv',
                 errorsfile='errors.lst',
-                xml_path='.',
+                xml_path='./all.xml',
                 strip_me='pub/data/',
                 ensure_prefix='spdf/cdaweb/data/',
                 add_prefix='s3://gov-nasa-hdrl-data1/'):
@@ -45,9 +45,9 @@ def check_presets(presets):
     safety = True
     for mykey in presets.keys():
         print(f"{mykey}: {presets[mykey]}")
-        if mykey == 'manifest' and not os.path.exists(presets[mykey]):
+        if (mykey == 'manifest' or mykey == 'xml_path') and not os.path.exists(presets[mykey]):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
-            ###safety = False
+            safety = False
     return safety
 
 def dumpline(fout,cache):
@@ -102,8 +102,8 @@ def manifest2indices(presets=None):
 
     # init setup to trigger first rounds
     currid = 'junk'
-    tracker = ['junk','0','.']
-    ztime = '0000'
+    tracker = ['id','s3key','start']
+    ztime = 'stop'
     cache = {'start':'','s3key':'','fsize':''}
     fout = open('junk.ignore','w')
 
@@ -191,14 +191,14 @@ def m2i_main(argv=None):
         description="Merge cloudcatalog JSON files",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--manifest", default="sortedmanifest.csv",
+    parser.add_argument("--manifest", default="manifest_sorted.csv",
                         help="Path to the manifest CSV")
     parser.add_argument("--coutfile", default="updates.csv",
                         help="Output CSV for updates")
     parser.add_argument("--errorsfile", default="errors.lst",
                         help="Output file for errors")
-    parser.add_argument("--xml-path", dest="xml_path", default=".",
-                        help="Root path to XML files")
+    parser.add_argument("--xml-path", dest="xml_path", default="./all.xml",
+                        help="Full name of XML files")
     parser.add_argument("--strip-me", dest="strip_me", default="pub/data/",
                         help="Prefix to strip from paths")
     parser.add_argument("--ensure-prefix", dest="ensure_prefix",

@@ -12,9 +12,9 @@ we do a best guess on YYYYMMDD.
 
 """
 
-def load_fromxml(homepath = ".", strip_me = None, ensure_prefix = None):
+def load_fromxml(xml_path = "./all.xml", strip_me = None, ensure_prefix = None):
     # Define file name and URL
-    FILE_NAME = f"{homepath}/all.xml"
+    FILE_NAME = xml_path
     FILE_URL = "https://spdf.gsfc.nasa.gov/pub/catalogs/all.xml"
     # Check if file exists locally; if not, download it
     if not os.path.exists(FILE_NAME):

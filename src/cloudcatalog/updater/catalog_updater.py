@@ -95,7 +95,7 @@ def update_catalog_from_json(json_path = 'catalog.json',
 
 def update_catalog_from_csv(json_path = 'catalog.json',
                             csv_path = 'cat.csv',
-                            collections = None):
+                            collections_filter = None):
     if not os.path.exists(json_path) or not os.path.exists(csv_path):
         return False
     cat_ids, cat_data, json_data = jloadme(json_path)
@@ -133,8 +133,8 @@ def update_catalog_from_csv(json_path = 'catalog.json',
                 else:
                     target[key] = infer_type(value)
                     
-            if collections != None and has_collections == False:
-                target["collections"] = collections
+            if collections_filter != None and has_collections == False:
+                target["collections"] = collections_filter
 
     cat_data = [cat_data[key] for key in sorted(cat_data.keys())]
     json_data["catalog"] = cat_data
@@ -163,8 +163,8 @@ def update_json_main():
     parser = argparse.ArgumentParser(description="Update catalog from JSON.")
     parser.add_argument("json_path")
     parser.add_argument("json_updates")
-    parser.add_argument("--collections_filter", default=None)
-    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--collections_filter", dest="collections_filter", default=None)
+    parser.add_argument("--debug", dest="debug", action="store_true")
     args = parser.parse_args()
 
     update_catalog_from_json(
@@ -180,7 +180,7 @@ def update_csv_main():
     parser = argparse.ArgumentParser(description="Update catalog from CSV.")
     parser.add_argument("json_path")
     parser.add_argument("csv_path")
-    parser.add_argument("--collections_filter", default=None)
+    parser.add_argument("--collections_filter", dest="collections_filter", default=None)
     args = parser.parse_args()
 
     update_catalog_from_csv(
