@@ -133,7 +133,7 @@ def tree_main(catalog=None):
     p = argparse.ArgumentParser(prog="cloudcatalog-tree", description="Print the cloudcatalog tree")
     p.add_argument("--catalog_url", default=None, help="(optional) catalog loc")
     args = p.parse_args()
-    tree(catalog=catalog_url,returnvars=False,printme=True)
+    tree(catalog=args.catalog_url,returnvars=False,printme=True)
 
 if __name__ == "__main__":
     spiderset, fr = tree(returnvars=True,printme=True)
