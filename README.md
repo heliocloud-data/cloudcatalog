@@ -33,7 +33,7 @@ We also include command-line tools for creating and viewing the networked catalo
 
 #### Viewing tools
 
-* cloudcatalog-tree: lists or returns list of all dataset IDs available, fast
+* cloudcatalog-tree: lists or returns list of all toplevel datasets and number of dataIDs available, fast
 * cloudcatalog-spider: as 'tree' plus lists valid years and number of files, slow
 
 #### Generator/updater tools (beta, use at risk for now)
