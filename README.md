@@ -1,6 +1,15 @@
 # CloudCatalog (cloudcatalog) API
 
+Indexing millions of files for easy, searchable yet serverless and decentralized access is hard.  CloudCatalog is a lightweight CSV- and JSON-based indexing schema enabling HAPI-like "data ID + time range" queries on massive cloud datasets, and includes an implementation of the API and support tools in Python. Key goals include that (1) data owners control their own indices, (2) indices are static files to avoid incurring server costs, (3) searching is efficient and (4) indices are easily constructable and maintainable by the scientists/data-owners (the 'lazy' part). In addition to the FAIR principles of findability, accessibility, interoperability, and reusability, it is serverless and decentralized so that contributors can publish and update their open science data without the worries of external gatekeeping or server maintenance.  
+
 CloudCatalog is a generalized indexing specification for large cloud datasets.
+
+* For sharing datasets across cloud frameworks
+* Decentralized: data owners control their own data and access via JSON
+* RESTful & serverless (indices are flat CSV files alongside their datasets)
+* Removes need for doing slow/expensive disk ‘ls’ on large holdings
+* Searchable
+
 The push to open science means many more published datasets, and finding and accessing is important to solve. CloudCatalog is an indexing method for sharing big datasets in cloud systems. It is scientist-friendly and it is easy to generate a set of indices. It uses static index files in time-ordered CSV format that are easy to fetch, easy to access via an API, and very low cost in both money and bandwidth needed to support. Metadata is kept in a simple JSON schema. We also provide a Python client toolset for scientists to access datasets that use CloudCatalog. 
 
 The CloudCatalog specification and tools are open source, created by the HelioCloud project, and already used for 2 Petabytes of publicly available NASA and scientist-contributed data. We hope the community continues to adopt this CloudCatalog standard (in github, linked off heliocloud.org).
@@ -17,6 +26,22 @@ The CloudCatalog specification and tools are open source, created by the HelioCl
 [The Specification](docs/cloudcatalog-spec.md) enables anyone to index a public dataset such that other users can find it and retrieve file listings in a cost-effective serverless fashion.
 
 The API is designed for retrieving file catalog (index) files from a specific ID entry in a catalog within a bucket. It also includes search functionality for searching through all data index catalogs found in the bucket list.
+
+## Command-line tools
+
+We also include command-line tools for creating and viewing the networked catalogs.
+
+#### Viewing tools
+
+* cloudcatalog-tree: lists or returns list of all toplevel datasets and number of dataIDs available, fast
+* cloudcatalog-spider: as 'tree' plus lists valid years and number of files, slow
+
+#### Generator/updater tools (beta, use at risk for now)
+
+* cloudcatalog-update-json: updates catalog.json using metadata from catalog_stub.json
+* cloudcatalog-update-csv: updates catalog.json using metadata from cat.csv
+* cloudcatalog-gui: GUI for selecting files for cloudcatalog-update-json
+* cloudcatalog-manifest2indices: tries to convert an AWS Manifest.csv to individual [dataID]_[YYYY].csv indices
 
 ## Use Case
 Suppose there is a mission on S3 that follows the HelioCloud 'CloudCatalog' specification, and you want to obtain specific files from this mission.

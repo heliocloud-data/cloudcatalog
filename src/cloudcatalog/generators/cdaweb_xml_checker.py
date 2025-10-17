@@ -12,9 +12,9 @@ we do a best guess on YYYYMMDD.
 
 """
 
-def load_fromxml(homepath = ".", strip_me = None, ensure_prefix = None):
+def load_fromxml(xml_path = "./all.xml", strip_me = None, ensure_prefix = None):
     # Define file name and URL
-    FILE_NAME = f"{homepath}/all.xml"
+    FILE_NAME = xml_path
     FILE_URL = "https://spdf.gsfc.nasa.gov/pub/catalogs/all.xml"
     # Check if file exists locally; if not, download it
     if not os.path.exists(FILE_NAME):
@@ -151,17 +151,20 @@ def extract_just_dataid(fullname, shortprefix = None):
         dataid = None
     return dataid, basename
 
-def best_indexdir(fullname, short_prefix = None):
+def best_indexdir(fullname, short_prefix = None, add_prefix = None):
     """ shortform is standard prefix + just the next field only
            e.g. spdf/cdaweb/data/ace/cris/level_2_cdaweb/cris_h2/*.cdf
            resolves to either 'spdf/cdaweb/data/ace/cris/level_2_cdaweb'
            or with 'shortprefix='spdf/cdaweb/data/', is 'spdf/cdaweb/data/ace'
+        Optional 'add_prefix' prepends to it, usually with an S3 bucket name
     """
     indexdir = os.path.dirname(fullname)
     if short_prefix != None:
         blen = min(len(short_prefix.split('/')),len(indexdir.split('/')))
         indexdir = '/'.join(indexdir.split('/')[:blen])
         indexdir += '/indices'
+    if add_prefix != None:
+        indexdir = add_prefix + indexdir
     return indexdir
 
 def extract_regex(regex_base, regex_pattern, fullname):

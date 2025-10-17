@@ -31,7 +31,7 @@ Sample usage: having generated a set of updated times in 'cat.csv',
 import json
 import csv
 import os
-import version_file as vf
+from cloudcatalog.updater import version_file as vf
 
 def jloadme(jsonfile):
     with open(jsonfile, "r") as f:
@@ -95,7 +95,7 @@ def update_catalog_from_json(json_path = 'catalog.json',
 
 def update_catalog_from_csv(json_path = 'catalog.json',
                             csv_path = 'cat.csv',
-                            collections = None):
+                            collections_filter = None):
     if not os.path.exists(json_path) or not os.path.exists(csv_path):
         return False
     cat_ids, cat_data, json_data = jloadme(json_path)
@@ -133,8 +133,8 @@ def update_catalog_from_csv(json_path = 'catalog.json',
                 else:
                     target[key] = infer_type(value)
                     
-            if collections != None and has_collections == False:
-                target["collections"] = collections
+            if collections_filter != None and has_collections == False:
+                target["collections"] = collections_filter
 
     cat_data = [cat_data[key] for key in sorted(cat_data.keys())]
     json_data["catalog"] = cat_data
@@ -156,14 +156,36 @@ def infer_type(value):
             continue
     return value
 
+# CLI entry points
+def update_json_main():
+    # parse args and call update_catalog_from_json
+    import argparse
+    parser = argparse.ArgumentParser(description="Update catalog from JSON.")
+    parser.add_argument("json_path")
+    parser.add_argument("json_updates")
+    parser.add_argument("--collections_filter", dest="collections_filter", default=None)
+    parser.add_argument("--debug", dest="debug", action="store_true")
+    args = parser.parse_args()
 
+    update_catalog_from_json(
+        json_path=args.json_path,
+        json_updates=args.json_updates,
+        collections_filter=args.collections_filter,
+        debug=args.debug,
+    )
 
+def update_csv_main():
+    # parse args and call update_catalog_from_csv
+    import argparse
+    parser = argparse.ArgumentParser(description="Update catalog from CSV.")
+    parser.add_argument("json_path")
+    parser.add_argument("csv_path")
+    parser.add_argument("--collections_filter", dest="collections_filter", default=None)
+    args = parser.parse_args()
 
-if __name__ == "__main__":
-    jfile = "test/catalog.json"
-    ofile = "test/catalog_stub.json"
-    cfile = "test/cat.csv"
-    success = update_catalog_from_json(jfile,ofile)
-    print("JSON pdate succeeded." if success else "Update failed: missing input file(s).")
-    success = update_catalog_from_csv(jfile,cfile)
-    print("CSV update succeeded." if success else "Update failed: missing input file(s).")
+    update_catalog_from_csv(
+        json_path=args.json_path,
+        csv_path=args.csv_path,
+        collections_filter=args.collections_filter,
+    )
+
