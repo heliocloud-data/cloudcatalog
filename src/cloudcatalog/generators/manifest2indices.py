@@ -7,7 +7,7 @@
     (usually the case when just alphabetically sorting it)
    Also, that only .nc/.cdf files exist
 
-   ***** REQUIRES MANIFEST.csv is in sorted order by first id, then timestamp
+   ***** REQUIRES MANIFEST.csv is in sorted order by first id, then filesize
 
 (Catalog updater does the 'update if exists, otherwise use XML to create)
 
@@ -19,14 +19,20 @@ import pathlib
 import re
 import shutil
 import time
-import cdaweb_xml_checker as cxc
+from . import cdaweb_xml_checker as cxc
 
 DEBUG = False
+
+# if --filter_filetypes, then only indexes these filename end stems
+endpattern = re.compile(r'\.(?:cdf|nc|fits|fts)$')
 
 def set_presets(manifest='manifest_sorted.csv',
                 coutfile='updates.csv',
                 errorsfile='errors.lst',
-                xml_path='./all.xml',
+                ignorefile='ignore.lst',
+                newidsfile='newids.csv',
+                xml_file='./all.xml',
+                filter_filetypes=True,
                 strip_me='pub/data/',
                 ensure_prefix='spdf/cdaweb/data/',
                 add_prefix='s3://gov-nasa-hdrl-data1/'):
@@ -34,7 +40,10 @@ def set_presets(manifest='manifest_sorted.csv',
         "manifest" : manifest,
         "coutfile" : coutfile,
         "errorsfile" : errorsfile,
-        "xml_path" : xml_path,
+        "ignorefile" : ignorefile,
+        "newidsfile" : newidsfile,
+        "xml_file" : xml_file,
+        "filter_filetypes": filter_filetypes,
         "strip_me" : strip_me,
         "ensure_prefix" : ensure_prefix,
         "add_prefix" : add_prefix
@@ -44,14 +53,21 @@ def set_presets(manifest='manifest_sorted.csv',
 def check_presets(presets):
     safety = True
     for mykey in presets.keys():
-        print(f"{mykey}: {presets[mykey]}")
-        if (mykey == 'manifest' or mykey == 'xml_path') and not os.path.exists(presets[mykey]):
+        print(f"\t{mykey}: {presets[mykey]}")
+        if mykey == 'manifest' and not os.path.exists(presets[mykey]):
+            print(f"Warning, {mykey}: {presets[mykey]} does not exist")
+            safety = False
+        if mykey == 'xml_file' and presets[mykey] != None and not os.path.exists(presets[mykey]):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
             safety = False
     return safety
 
 def dumpline(fout,cache):
-    fout.write(f"{cache['start']},{cache['stop']},{cache['s3key']},{cache['fsize']}\n")
+    try:
+        fout.write(f"{cache['start']},{cache['stop']},{cache['s3key']},{cache['fsize']}\n")
+    except:
+        pass
+        #fake print(f"Error writing line for {cache['s3key']}, continuing with errors")
     #print("\t\t",cache)
 
 def parseline(line):
@@ -87,35 +103,39 @@ def version_file(filepath):
 def manifest2indices(presets=None):
     if presets == None: presets = set_presets()
     if check_presets(presets) == False:
+        print("Error, some presets not valid, exiting.")
         return
-    
+
     now = time.time()
     idcount, ncount, ierrors = 0, 0, 0
     version_file(presets["coutfile"])
     version_file(presets["errorsfile"])
-    regex_base, regex_pattern = cxc.load_fromxml(presets["xml_path"],
+    version_file(presets["ignorefile"])
+    version_file(presets["newidsfile"])
+    regex_base, regex_pattern = cxc.load_fromxml(presets["xml_file"],
                                 strip_me=presets["strip_me"],
                                 ensure_prefix=presets["ensure_prefix"])
     fin = open(presets["manifest"],"r")
     cout = open(presets["coutfile"],"w")
     ferr = open(presets["errorsfile"],"w")
+    fignore = open(presets["ignorefile"],"w")
+    fnewids = open(presets["newidsfile"],"w")
 
     # init setup to trigger first rounds
     currid = 'junk'
-    tracker = ['id','s3key','start']
+    tracker = ['id','index','start']
     ztime = 'stop'
     cache = {'start':'','s3key':'','fsize':''}
     fout = open('junk.ignore','w')
-
-    endpattern = re.compile(r'\.(?:cdf|nc)$')
 
     for line in fin:
         ncount += 1
         if ncount % 100000 == 0: print(f"\t up to file {ncount}")
         fname, fsize = parseline(line)
-        if not endpattern.search(fname):
+        if presets["filter_filetypes"] and not endpattern.search(fname):
+            fignore.write(f"{fname} ignored, no whitelisted filestem\n")
             continue
-        dataid, filename = cxc.extract_just_dataid(fname,shortprefix=presets["ensure_prefix"])
+        dataid, filename = cxc.extract_just_dataid(fname)
         if dataid == None:
             ferr.write(f"{fname}, dataid not found\n")
             ierrors += 1
@@ -133,7 +153,14 @@ def manifest2indices(presets=None):
             except:
                 tracker.pop() # no valid new id yet so remove that last bad field
                 pass
-            dataid, indexbase, x_regex = cxc.extract_regex(regex_base, regex_pattern, fname)
+            dataid_ignore, indexbase, x_regex = cxc.extract_regex(regex_base, regex_pattern, fname)
+            if dataid not in regex_pattern.keys():
+                fnewids.write(f"{dataid},{fname}\n")
+                print(f"fake new ids, {dataid},{fname}\n")
+                regex_pattern[dataid] = x_regex
+                regex_base[dataid] = indexbase
+            if x_regex != regex_pattern[dataid]:
+                regex_pattern[dataid] = x_regex # update
             indexbase = cxc.best_indexdir(fname, short_prefix=presets["ensure_prefix"],add_prefix=presets["add_prefix"])
             ztime = cxc.extract_datetime(fname, x_regex, form="str")
             if ztime == None:
@@ -178,6 +205,9 @@ def manifest2indices(presets=None):
     tracker.append(ztime)
     cout.write(','.join(tracker)+'\n')
     fout.close()
+    ferr.close()
+    fignore.close()
+    fnewids.close()
     cout.close()
     pathlib.Path('junk.ignore').unlink(missing_ok=True)
 
@@ -191,20 +221,34 @@ def m2i_main(argv=None):
         description="Merge cloudcatalog JSON files",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--manifest", default="manifest_sorted.csv",
+    parser.add_argument("--manifest", dest="manifest",
+                        default="manifest_sorted.csv",
                         help="Path to the manifest CSV")
-    parser.add_argument("--coutfile", default="updates.csv",
+    parser.add_argument("--coutfile", dest="coutfile",
+                        default="updates.csv",
                         help="Output CSV for updates")
-    parser.add_argument("--errorsfile", default="errors.lst",
+    parser.add_argument("--errorsfile", dest="errorsfile",
+                        default="errors.lst",
                         help="Output file for errors")
-    parser.add_argument("--xml-path", dest="xml_path", default="./all.xml",
+    parser.add_argument("--ignorefile", dest="ignorefile",
+                        default="ignore.lst",
+                        help="Output file for files with wrong filestems (only if --filker_filetypes is set)")
+    parser.add_argument("--newidsfile", dest="newidsfile",
+                        default="newids.csv",
+                        help="Outputs IDs that were not in the xml")
+    parser.add_argument("--xml_file", dest="xml_file",
+                        default=None,
                         help="Full name of XML files")
-    parser.add_argument("--strip-me", dest="strip_me", default="pub/data/",
+    parser.add_argument("--filter_filetypes", dest="filter_filetypes",
+                        action="store_true",
+                        help="toggle on whether to whitelist filetypes")
+    parser.add_argument("--strip_me", dest="strip_me",
+                        default="pub/data/",
                         help="Prefix to strip from paths")
-    parser.add_argument("--ensure-prefix", dest="ensure_prefix",
+    parser.add_argument("--ensure_prefix", dest="ensure_prefix",
                         default="spdf/cdaweb/data/",
                         help="Required prefix to enforce on paths")
-    parser.add_argument("--add-prefix", dest="add_prefix",
+    parser.add_argument("--add_prefix", dest="add_prefix",
                         default="s3://gov-nasa-hdrl-data1/",
                         help="Required start to add on all index & file paths")
 
@@ -214,7 +258,10 @@ def m2i_main(argv=None):
         manifest=args.manifest,
         coutfile=args.coutfile,
         errorsfile=args.errorsfile,
-        xml_path=args.xml_path,
+        ignorefile=args.ignorefile,
+        newidsfile=args.newidsfile,
+        xml_file=args.xml_file,
+        filter_filetypes=args.filter_filetypes,
         strip_me=args.strip_me,
         ensure_prefix=args.ensure_prefix,
         add_prefix=args.add_prefix,

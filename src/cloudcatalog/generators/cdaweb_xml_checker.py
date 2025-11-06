@@ -55,20 +55,28 @@ def load_fromxml(xml_path = "./all.xml", strip_me = None, ensure_prefix = None):
                         url_cleaned = re.sub(f"^{strip_me}","",url_cleaned)
                     if ensure_prefix != None and not url_cleaned.startswith(ensure_prefix):
                         url_cleaned = ensure_prefix + url_cleaned
-                    regex_base[dataid] = url_cleaned
-                    regex_pattern[dataid] = strftime_to_regex(filenaming)
+                else:
+                    # just remove front stem and hope
+                    url_cleaned = re.sub("https://","",url_text)
+                regex_base[dataid] = url_cleaned
+                regex_pattern[dataid] = strftime_to_regex(filenaming)
                     
     #print(len(regex_base.keys()),len(regex_pattern.keys()))
     return regex_base, regex_pattern
 
+ 
 def guess_regex(basename):
-    patterns = ["_%Y%m%d%H%M%S_",
-                "_%Y%m%d%H%M_",
-                "_%Y%m%d_",
-                "_%Y%m_",
-                "_%Y%j_",
-                "_%Y_%j_",
-                "_%Y%m%dt%H%M%S"
+    patterns = ["[_/]%Y%m%d[tT]%H%M%S",
+                "[_/]%Y%m%d%H%M%S_",
+                "[_/]%Y-%m-%d[tT]%H_%M_%S",
+                "[_/]%Y%m%d_%H%M%S_",
+                "[_/]%Y%m%d%H%M_",
+                "[_/]%Y%m%d%H%M",
+                "[_/]%Y%m%d_",
+                "[_/]%Y%m_",
+                "[_/]%Y%j_",
+                "[_/]%Y_%j_",
+                "/%Y/%m/%s/"
                 ]
     patterns = [strftime_to_regex(p) for p in patterns]
     for x_p in patterns:
@@ -142,13 +150,45 @@ def efficient_parse_line(line, metadata):
 
 
 
-def extract_just_dataid(fullname, shortprefix = None):
+def new_extract_just_dataid(fullname, shortprefix = None):
     basename = os.path.basename(fullname)
-    dataid_m = re.match(r".*_\d{4}",basename)
-    if dataid_m != None:
-        dataid = dataid_m[0][:-5].upper()
+    m = re.match(r"^(.*?)(?=_[0-9]{4})", basename)
+    if m:
+        dataid = m.group(1).upper()
+    else:
+        dataid = basename.upper()  # fallback if pattern not found
+
+    return dataid, basename
+
+def extract_just_dataid(fullname):
+    basename = os.path.basename(fullname)
+    #dataid_m = re.match(r".*_\d{4}",basename)
+    #if dataid_m != None:
+    #    dataid = dataid_m[0][:-5].upper()
+    #else:
+    #    dataid = None
+    m = re.match(r"^(.*?)(?=_[0-9]{4})", basename)
+    if not m:
+        m = re.match(r"^(.*?)(?=/[0-9]{4})", fullname)
+    if m:
+        dataid = m.group(1).upper()
     else:
         dataid = None
+    if dataid == None or re.match(r"^[0-9]{4}", dataid):
+        # handles SDAC-like cases where dataid is in the path not filename
+        pieces = fullname.split('/')
+        for ip in range(len(pieces)-1,0,-1):
+            if not re.match("^[0-9]{4}",pieces[ip]):
+                dataid = '_'.join(pieces[0:ip+1])
+                break
+    if re.search(r"/",dataid):
+        dataid = re.sub(r"/","_",dataid)
+    # hinode etc cases where ID contains year no underscore
+    m = re.match(r"^(.*?)(?=[0-9]{8})", dataid)
+    if m:
+        #print("fake, hinode match)",dataid,':',m.group(0).upper())
+        dataid = m.group(0).upper()
+
     return dataid, basename
 
 def best_indexdir(fullname, short_prefix = None, add_prefix = None):
@@ -174,19 +214,30 @@ def extract_regex(regex_base, regex_pattern, fullname):
         try:
             x_regex = regex_pattern[dataid]
             basedir = regex_base[dataid]
-            return dataid, basedir, x_regex
+            test = re.search(x_regex,fullname)
+            if test:
+                return dataid, basedir, x_regex
         except:
             try:
                 x_regex = regex_pattern[dataid+"_alt"]
                 basedir = regex_base[dataid+"_alt"]
-                return dataid, basedir, x_regex
+                test = re.search(x_regex,fullname)
+                if test:
+                    return dataid, basedir, x_regex
             except:
-                pass
-    dataid, basedir, x_regex = slow_extract_regex(regex_base, regex_pattern, fullname)
+                x_regex = guess_regex(fullname)
+                basedir = os.path.dirname(fullname)
+                test = re.search(x_regex,fullname)
+                if test:
+                    return dataid, basedir, x_regex
+    """dataid, basedir, x_regex = slow_extract_regex(regex_base, regex_pattern, fullname)
     if dataid != None:
-        return dataid, basedir, x_regex
-    # not in 'all.xml', so let us add it
-    x_regex = guess_regex(basename)
+        test = re.search(x_regex,fullname)
+        if test:
+            return dataid, basedir, x_regex
+    """
+    # not in 'all.xml' or did not work, so let us add it
+    x_regex = guess_regex(fullname)
     dataid_m = re.match(r".*_\d{4}",basename)
     if dataid_m == None:
         return None, None, None
@@ -208,7 +259,7 @@ def slow_extract_regex(regex_base, regex_pattern, fullname):
             # also ensuring the date regex will work later
             x_regex_alt = regex_pattern.setdefault(f"{dataid}_alt", re.sub(r"\(.*\)", ".*", x_regex))
             if re.search(x_regex_alt,basename):
-                return dataid, base, x_regex
+                return dataid, base, x_regex_alt
 
     return None, None, None  # No match found
 
@@ -245,16 +296,18 @@ def strftime_to_regex(pattern):
     last_paren = regex_pattern.rfind(')')
     if last_paren != -1:
         regex_pattern = regex_pattern[:last_paren + 1]
-        regex_pattern += '_'
+        #regex_pattern += '_'
 
     return regex_pattern
 
 # Function to extract datetime from filename using filenaming pattern
 def extract_datetime(filename, regex_pattern, form='dt'):
     if not regex_pattern:
-        return None  # No valid pattern provided
-    # note there are some with 't' instead of 'T' etc
+        regex_pattern = guess_regex(filename)
     match = re.search(regex_pattern, filename, re.IGNORECASE)
+    if not match:
+        new_regex = guess_regex(filename)
+        match = re.search(new_regex, filename, re.IGNORECASE)
     if match:
         try:
             year = int(match.group("year"))
@@ -281,13 +334,12 @@ def extract_datetime(filename, regex_pattern, form='dt'):
                 return mydate
 
         except: # ValueError:
-            return None
+            pass
             #if '?P' not in regex_pattern:
             #    # regex has no data info, so not our problem
             #    return "0000"
             #else:
             #    return None  # Invalid date components
-
     return None  # No match found
 
 # Test case

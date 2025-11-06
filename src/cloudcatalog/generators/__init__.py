@@ -1,3 +1,3 @@
-from .manifest2indices import manifest2indices
+from .manifest2indices import m2i_main
 
-__all__ = ["manifest2indices"]
+__all__ = ["m2i_main"]
