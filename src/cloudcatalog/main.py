@@ -130,21 +130,23 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
     fetch S3 for a specified region only, defaulting to us-east-1
     fetch the S3 contents via the AWS-equivalent URL
     """
+    diag = False
 
+    if diag: print("Trying ",s3url)
     try:
-        # print("Calling unsigned")
+        if diag: print("Calling unsigned")
         status, catalog = fetch_S3(
             s3url, unsigned=True, rawbytes=rawbytes, **client_kwargs
         )
     except:
         try:
-            # print("Calling signed")
+            if diag: print("Calling signed")
             status, catalog = fetch_S3(
                 s3url, unsigned=False, rawbytes=rawbytes, **client_kwargs
             )
         except:
             try:
-                # print("Calling region")
+                if diag: print("Calling region")
                 status, catalog = fetch_S3(
                     s3url,
                     unsigned=True,
@@ -154,13 +156,20 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
                 )
             except:
                 try:
-                    # print("Calling url")
+                    if diag: print("Calling url")
                     status, catalog = fetch_url(s3url, rawbytes=rawbytes)
                     if status == 404:
                         return None
                 except:
-                    # print("Cannot fetch catalog, exiting.")
-                    return None
+                    try:
+                        if diag: print("Calling local file")
+                        with open(s3url) as fin:
+                            catalog = json.load(fin)
+                        rawbytes = False
+                        status = True
+                    except:
+                        if diag: print("Cannot fetch catalog, exiting.")
+                        return None
     if rawbytes:
         fr_bytes_file = BytesIO()
         fr_bytes_file.write(catalog)
@@ -376,6 +385,7 @@ class CloudCatalog:
                 (loc.startswith(bucket_prefix) or loc.startswith("http"))
                 and loc[-1] == "/"
             ):
+                # print("Error at ",loc)
                 raise ValueError(f"Invalid index in catalog entry. index: {loc}")
             # could check if start is less than stop here
 

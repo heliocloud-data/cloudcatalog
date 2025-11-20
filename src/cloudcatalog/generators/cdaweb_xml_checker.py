@@ -1,7 +1,9 @@
-import xml.etree.ElementTree as ET
+import csv
+import json
 import os
 import requests
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -10,7 +12,51 @@ Parsing via https://spdf.gsfc.nasa.gov/pub/catalogs/00readme.txt
 Note they say the 'all.xml' is incomplete, so for unlisted items
 we do a best guess on YYYYMMDD.
 
+Syntax for a sample CSV metadata file would be: dataid, base, pattern
+e.g. ace_l2,ace/orbit/level_2_cdaweb/,ac_or_def_%Y%m%d_%Q.cdf
+
+
 """
+def load_fromcsv(csv_path,ensure_prefix=None):
+    regex_base = {}
+    regex_matchme = {}
+    regex_pattern = {}
+    with open(csv_path, "r", encoding="utf-8") as file:
+        metadata = csv.DictReader(file)
+        for row in metadata:
+            dataid = row["dataid"]
+            regex_matchme[dataid] = row["matchme"]
+            regex_pattern[dataid] = strftime_to_regex(row["datepattern"])
+            url_cleaned = row["indexhome"]
+            if ensure_prefix != None and not url_cleaned.startswith(ensure_prefix):
+                url_cleaned = ensure_prefix + url_cleaned
+            regex_base[dataid] = url_cleaned
+                            
+    return regex_base, regex_pattern, regex_matchme
+
+def extract_matchme(fullname, regex_matchme):
+    basename = os.path.basename(fullname)
+    for key,value in regex_matchme.items():
+        if value in fullname:
+            return key, basename
+    return None, basename
+
+def load_fromjson(json_path):
+    ### UNTESTED!
+    with open(json_path, "r", encoding="utf-8") as file:
+        metadata = json.load(file)
+    regex_base = {}
+    regex_pattern = {}
+    for item in metadata.get("catalog", []):
+        dataid = item.get("dataid", [])
+        url_cleaned = item.get("base", [])
+        filenaming = item.get("pattern", [])
+        if ensure_prefix != None and not url_cleaned.startswith(ensure_prefix):
+            url_cleaned = ensure_prefix + url_cleaned
+        regex_base[dataid] = url_cleaned
+        regex_pattern[dataid] = strftime_to_regex(filenaming)
+                            
+    return regex_base, regex_pattern
 
 def load_fromxml(xml_path = "./all.xml", strip_me = None, ensure_prefix = None):
     # Define file name and URL
@@ -265,7 +311,7 @@ def slow_extract_regex(regex_base, regex_pattern, fullname):
 
 def strftime_to_regex(pattern):
     # Replace %Q fields with ".*" as they are not date-related                  
-    pattern = re.sub(r"%Q[0-9]*", ".*", pattern)
+    pattern = re.sub(r"%Q[0-9]*", r".*", pattern)
 
     format_mapping = {
         "%Y": ("year", r"\d{4}"),
