@@ -237,6 +237,16 @@ def extract_just_dataid(fullname):
 
     return dataid, basename
 
+def trio_indexdir(fullname, add_prefix = None):
+    """ case for sdac, contrib, possibly others
+        take the 1st 3 elements of the path only
+    """
+    indexdir = '/'.join(fullname.split('/')[:3])
+    indexdir += '/indices'
+    if add_prefix != None:
+        indexdir = add_prefix + indexdir
+    return indexdir
+    
 def best_indexdir(fullname, short_prefix = None, add_prefix = None):
     """ shortform is standard prefix + just the next field only
            e.g. spdf/cdaweb/data/ace/cris/level_2_cdaweb/cris_h2/*.cdf

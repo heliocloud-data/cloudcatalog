@@ -35,7 +35,8 @@ def set_presets(manifest='manifest_sorted.csv',
                 filter_filetypes=True,
                 strip_me='pub/data/',
                 ensure_prefix='spdf/cdaweb/data/',
-                add_prefix='s3://gov-nasa-hdrl-data1/'):
+                add_prefix='s3://gov-nasa-hdrl-data1/',
+                quiet=False):
     presets = {
         "manifest" : manifest,
         "coutfile" : coutfile,
@@ -46,14 +47,15 @@ def set_presets(manifest='manifest_sorted.csv',
         "filter_filetypes": filter_filetypes,
         "strip_me" : strip_me,
         "ensure_prefix" : ensure_prefix,
-        "add_prefix" : add_prefix
+        "add_prefix" : add_prefix,
+        "quiet" : quiet
         }
     return presets
 
 def check_presets(presets):
     safety = True
     for mykey in presets.keys():
-        print(f"\t{mykey}: {presets[mykey]}")
+        if presets["quiet"] == False: print(f"\t{mykey}: {presets[mykey]}")
         if mykey == 'manifest' and not os.path.exists(presets[mykey]):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
             safety = False
@@ -139,8 +141,15 @@ def manifest2indices(presets=None):
     version_file(presets["errorsfile"])
     version_file(presets["ignorefile"])
     version_file(presets["newidsfile"])
+    use_regex = True
     if presets["metadata_file"] == None:
         regex_base, regex_pattern = {}, {}
+        use_regex = False
+        """
+        when no regexes then grab the 1st 3 in path to make before /indices!!!
+        e.g. contrib/jhuapl/supermag -> indices
+             sdac/hinode/sot/
+        """
     elif presets["metadata_file"].endswith(".xml"):
         regex_base, regex_pattern = cxc.load_fromxml(presets["metadata_file"],
                                 strip_me=presets["strip_me"],
@@ -194,13 +203,18 @@ def manifest2indices(presets=None):
             except:
                 tracker.pop() # no valid new id yet so remove that last bad field
                 pass
+            if use_regex == False:
+                indexbase = cxc.trio_indexdir(fname,add_prefix=presets["add_prefix"])
+            else:
+                try:
+                    indexbase = regex_base[dataid]
+                except:
+                    indexbase = cxc.best_indexdir(fname, short_prefix=presets["ensure_prefix"],add_prefix=presets["add_prefix"])
             try:
-                indexbase = regex_base[dataid]
                 x_regex = regex_pattern[dataid]
                 # fake, probably just rewrite below to be more robust?
             except:
-                dataid_ignore, indexbase, x_regex = cxc.extract_regex(regex_base, regex_pattern, fname)
-                indexbase = cxc.best_indexdir(fname, short_prefix=presets["ensure_prefix"],add_prefix=presets["add_prefix"])
+                dataid_ignore, indexbase_ignore, x_regex = cxc.extract_regex(regex_base, regex_pattern, fname)
             if dataid not in regex_pattern.keys():
                 fnewids.write(f"{dataid},{fname}\n")
                 #print(f"fake new ids, {dataid},{fname}\n")
@@ -305,6 +319,10 @@ def m2i_main(argv=None):
                         default="newids.csv",
                         help="Outputs IDs that were not in the metadata file")
 
+    parser.add_argument("--quiet", dest="quiet",
+                        action="store_true",
+                        help="quiet")
+
     args = parser.parse_args(argv)
 
     presets = set_presets(
@@ -318,6 +336,7 @@ def m2i_main(argv=None):
         strip_me=args.strip_me,
         ensure_prefix=args.ensure_prefix,
         add_prefix=args.add_prefix,
+        quiet=args.quiet
     )
 
     manifest2indices(presets=presets)

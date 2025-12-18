@@ -326,6 +326,7 @@ class CloudCatalog:
         bucket_name: str,
         cache_folder: Optional[str] = None,
         cache: bool = False,
+        altcatalog = None,
         **client_kwargs,
     ) -> None:
         """
@@ -338,6 +339,8 @@ class CloudCatalog:
                   is not unnecessarily done. If a cache_folder is provided,
                   this is forced to false because some archives
                   e.g. CDAWeb updates frequently.
+            altcatalog (default None): name to use other than 'catalog.json'
+                  for the actual catalog file to poll
             client_kwargs: parameters for boto3.client:
                    region_name, aws_acces_key_id, aws_secret_access_key, etc.
         """
@@ -352,7 +355,13 @@ class CloudCatalog:
 
         self.cache = cache
 
-        self.catalog = fetch_S3orURL(bucket_name + "/catalog.json", **client_kwargs)
+        self.altcatalog = altcatalog
+
+        catname = "catalog.json"
+        if altcatalog != None:
+            catname = altcatalog
+
+        self.catalog = fetch_S3orURL(bucket_name + "/" + catname, **client_kwargs)
 
         if self.catalog == None:
             raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
@@ -363,7 +372,7 @@ class CloudCatalog:
                 f"Invalid catalog. Missing either status or catalog key. Catalog: {self.catalog}"
             )
 
-        # Check status and rasie exception
+        # Check status and raise exception
         if self.catalog["status"]["code"] == 1400:
             raise UnavailableData(self.catalog["status"])
 
@@ -399,7 +408,7 @@ class CloudCatalog:
                 os.mkdir(self.cache_folder)
 
             # Copy the content of the catalog to this file (overwrites)
-            with open(os.path.join(cache_folder, "catalog.json"), "w") as file:
+            with open(os.path.join(cache_folder, catname), "w") as file:
                 json.dump(self.catalog, file, indent=4, ensure_ascii=False)
 
     def get_catalog(self) -> Dict:
@@ -647,6 +656,9 @@ class CloudCatalog:
 
             frs.append(fr)
 
+        if len(frs) == 0:
+            return frs
+            
         frs = pd.concat(frs)
 
         # Filter catalog dataframe to exact requested dates
