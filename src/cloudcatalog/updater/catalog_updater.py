@@ -33,25 +33,30 @@ import csv
 import os
 from cloudcatalog.updater import version_file as vf
 
+
 def jloadme(jsonfile):
     with open(jsonfile, "r") as f:
         json_data = json.load(f)
-    #cat_data = json_data.setdefault("catalog", [])
+    # cat_data = json_data.setdefault("catalog", [])
     cat_ids = [entry["id"] for entry in json_data["catalog"]]
-    cat_data = {entry["id"] : entry for entry in json_data["catalog"]}
+    cat_data = {entry["id"]: entry for entry in json_data["catalog"]}
     return cat_ids, cat_data, json_data
 
-def bestdate(date1,date2,earlier=True):
+
+def bestdate(date1, date2, earlier=True):
     itis = date1 < date2
     if earlier == itis:
         return date1
     else:
         return date2
 
-def update_catalog_from_json(json_path = 'catalog.json',
-                             json_updates = 'catalog_stub.json',
-                             collections_filter = None,
-                             debug = True):
+
+def update_catalog_from_json(
+    json_path="catalog.json",
+    json_updates="catalog_stub.json",
+    collections_filter=None,
+    debug=True,
+):
     if not os.path.exists(json_path) or not os.path.exists(json_updates):
         return False
     cat_ids, cat_data, json_data = jloadme(json_path)
@@ -59,23 +64,27 @@ def update_catalog_from_json(json_path = 'catalog.json',
 
     num_orig, num_new = len(cat_ids), len(cat_updates_ids)
     num_modded, num_added, num_tot = 0, 0, 0
-    
+
     # filter if we only need items in a collection
     if collections_filter != None:
-        cat_updates_ids = [myid for myid in cat_updates_ids if collections_filter in cat_updates[id]["collections"]]
+        cat_updates_ids = [
+            myid
+            for myid in cat_updates_ids
+            if collections_filter in cat_updates[id]["collections"]
+        ]
 
     for rec_id in cat_updates_ids:
         if rec_id in cat_ids:
             num_modded += 1
             for field in cat_updates[rec_id]:
                 if field == "start":
-                    cat_data[rec_id][field] = bestdate(cat_data[rec_id][field],
-                                                       cat_updates[rec_id][field],
-                                                       True)
+                    cat_data[rec_id][field] = bestdate(
+                        cat_data[rec_id][field], cat_updates[rec_id][field], True
+                    )
                 elif field == "stop":
-                    cat_data[rec_id][field] = bestdate(cat_data[rec_id][field],
-                                                       cat_updates[rec_id][field],
-                                                       False)
+                    cat_data[rec_id][field] = bestdate(
+                        cat_data[rec_id][field], cat_updates[rec_id][field], False
+                    )
                 else:
                     cat_data[rec_id][field] = cat_updates[rec_id][field]
         else:
@@ -89,13 +98,17 @@ def update_catalog_from_json(json_path = 'catalog.json',
     with open(json_path, "w") as f:
         json.dump(json_data, f, indent=4)
 
-    if debug: print(f"Orig catalog had {num_orig}, update had {num_new}: added {num_added}, modded {num_modded}, final total {num_tot}")
-    
+    if debug:
+        print(
+            f"Orig catalog had {num_orig}, update had {num_new}: added {num_added}, modded {num_modded}, final total {num_tot}"
+        )
+
     return True
 
-def update_catalog_from_csv(json_path = 'catalog.json',
-                            csv_path = 'cat.csv',
-                            collections_filter = None):
+
+def update_catalog_from_csv(
+    json_path="catalog.json", csv_path="cat.csv", collections_filter=None
+):
     if not os.path.exists(json_path) or not os.path.exists(csv_path):
         return False
     cat_ids, cat_data, json_data = jloadme(json_path)
@@ -123,7 +136,7 @@ def update_catalog_from_csv(json_path = 'catalog.json',
                 if key == "start" and "start" in cat_data:
                     # do not overwrite start times due to bug
                     continue
-                
+
                 if key == "collections":
                     has_collections = True
                     new_collection = value.strip()
@@ -132,7 +145,7 @@ def update_catalog_from_csv(json_path = 'catalog.json',
                         target_collections.append(new_collection)
                 else:
                     target[key] = infer_type(value)
-                    
+
             if collections_filter != None and has_collections == False:
                 target["collections"] = collections_filter
 
@@ -156,10 +169,12 @@ def infer_type(value):
             continue
     return value
 
+
 # CLI entry points
 def update_json_main():
     # parse args and call update_catalog_from_json
     import argparse
+
     parser = argparse.ArgumentParser(description="Update catalog from JSON.")
     parser.add_argument("json_path")
     parser.add_argument("json_updates")
@@ -174,9 +189,11 @@ def update_json_main():
         debug=args.debug,
     )
 
+
 def update_csv_main():
     # parse args and call update_catalog_from_csv
     import argparse
+
     parser = argparse.ArgumentParser(description="Update catalog from CSV.")
     parser.add_argument("json_path")
     parser.add_argument("csv_path")
@@ -188,4 +205,3 @@ def update_csv_main():
         csv_path=args.csv_path,
         collections_filter=args.collections_filter,
     )
-

@@ -111,7 +111,11 @@ if __name__ == "__main__":
         description="Allows for direct editing of catalog.json files on local disk.",
     )
     parser.add_argument(
-        "-f", "--file", type=str, required=True, help="Name of the catalog file to load."
+        "-f",
+        "--file",
+        type=str,
+        required=True,
+        help="Name of the catalog file to load.",
     )
     args = parser.parse_args()
 

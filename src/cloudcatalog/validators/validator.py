@@ -259,5 +259,5 @@ def validator(catalogname):
             )
 
 
-if __name__ == 'main':
-   validator(catalogname)
+if __name__ == "main":
+    validator(catalogname)

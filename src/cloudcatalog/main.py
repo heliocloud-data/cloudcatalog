@@ -130,21 +130,27 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
     fetch S3 for a specified region only, defaulting to us-east-1
     fetch the S3 contents via the AWS-equivalent URL
     """
+    diag = False
 
+    if diag:
+        print("Trying ", s3url)
     try:
-        # print("Calling unsigned")
+        if diag:
+            print("Calling unsigned")
         status, catalog = fetch_S3(
             s3url, unsigned=True, rawbytes=rawbytes, **client_kwargs
         )
     except:
         try:
-            # print("Calling signed")
+            if diag:
+                print("Calling signed")
             status, catalog = fetch_S3(
                 s3url, unsigned=False, rawbytes=rawbytes, **client_kwargs
             )
         except:
             try:
-                # print("Calling region")
+                if diag:
+                    print("Calling region")
                 status, catalog = fetch_S3(
                     s3url,
                     unsigned=True,
@@ -154,13 +160,23 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
                 )
             except:
                 try:
-                    # print("Calling url")
+                    if diag:
+                        print("Calling url")
                     status, catalog = fetch_url(s3url, rawbytes=rawbytes)
                     if status == 404:
                         return None
                 except:
-                    # print("Cannot fetch catalog, exiting.")
-                    return None
+                    try:
+                        if diag:
+                            print("Calling local file")
+                        with open(s3url) as fin:
+                            catalog = json.load(fin)
+                        rawbytes = False
+                        status = True
+                    except:
+                        if diag:
+                            print("Cannot fetch catalog, exiting.")
+                        return None
     if rawbytes:
         fr_bytes_file = BytesIO()
         fr_bytes_file.write(catalog)
@@ -317,6 +333,7 @@ class CloudCatalog:
         bucket_name: str,
         cache_folder: Optional[str] = None,
         cache: bool = False,
+        altcatalog=None,
         **client_kwargs,
     ) -> None:
         """
@@ -329,6 +346,8 @@ class CloudCatalog:
                   is not unnecessarily done. If a cache_folder is provided,
                   this is forced to false because some archives
                   e.g. CDAWeb updates frequently.
+            altcatalog (default None): name to use other than 'catalog.json'
+                  for the actual catalog file to poll
             client_kwargs: parameters for boto3.client:
                    region_name, aws_acces_key_id, aws_secret_access_key, etc.
         """
@@ -343,7 +362,13 @@ class CloudCatalog:
 
         self.cache = cache
 
-        self.catalog = fetch_S3orURL(bucket_name + "/catalog.json", **client_kwargs)
+        self.altcatalog = altcatalog
+
+        catname = "catalog.json"
+        if altcatalog != None:
+            catname = altcatalog
+
+        self.catalog = fetch_S3orURL(bucket_name + "/" + catname, **client_kwargs)
 
         if self.catalog == None:
             raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
@@ -354,7 +379,7 @@ class CloudCatalog:
                 f"Invalid catalog. Missing either status or catalog key. Catalog: {self.catalog}"
             )
 
-        # Check status and rasie exception
+        # Check status and raise exception
         if self.catalog["status"]["code"] == 1400:
             raise UnavailableData(self.catalog["status"])
 
@@ -376,6 +401,7 @@ class CloudCatalog:
                 (loc.startswith(bucket_prefix) or loc.startswith("http"))
                 and loc[-1] == "/"
             ):
+                # print("Error at ",loc)
                 raise ValueError(f"Invalid index in catalog entry. index: {loc}")
             # could check if start is less than stop here
 
@@ -389,7 +415,7 @@ class CloudCatalog:
                 os.mkdir(self.cache_folder)
 
             # Copy the content of the catalog to this file (overwrites)
-            with open(os.path.join(cache_folder, "catalog.json"), "w") as file:
+            with open(os.path.join(cache_folder, catname), "w") as file:
                 json.dump(self.catalog, file, indent=4, ensure_ascii=False)
 
     def get_catalog(self) -> Dict:
@@ -636,6 +662,9 @@ class CloudCatalog:
                 fr.columns.values[3] = "filesize"
 
             frs.append(fr)
+
+        if len(frs) == 0:
+            return frs
 
         frs = pd.concat(frs)
 
