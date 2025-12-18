@@ -1,12 +1,14 @@
 import csv
 
-def getrealyear(id,year):
+
+def getrealyear(id, year):
     fname = f"s3/spdf/cdaweb/data/mms/indices/{id}_{year}.csv"
     with open(fname) as fin:
         l1 = fin.readline()
         l2 = fin.readline()
-        start = l2.split(',')[0]
+        start = l2.split(",")[0]
         return start
+
 
 fname = "mms_indices.txt"
 cname = "catalog_updates.csv"
@@ -38,22 +40,23 @@ with open(cname) as cin:
         if tag in window and startyear in window[tag] and stopyear in window[tag]:
             pass
         else:
-            print(tag,startyear,stopyear)
+            print(tag, startyear, stopyear)
             print(window[tag])
 
         realstartyear = window[tag][0]
         realstopyear = window[tag][-1]
         if realstartyear == startyear and realstopyear == stopyear:
-            start = row.get('start')
+            start = row.get("start")
         else:
-            print(f"{tag}, says {startyear}-{stopyear} but indices exist for {realstartyear}-{realstopyear}")
-            start = getrealyear(tag,realstartyear)
-            
+            print(
+                f"{tag}, says {startyear}-{stopyear} but indices exist for {realstartyear}-{realstopyear}"
+            )
+            start = getrealyear(tag, realstartyear)
+
         line = f"{row.get('id')},{start},{row.get('stop')},{row.get('index')},{row.get('modification')}\n"
         csvout.append(line)
 
-with open(cnew,"w") as fout:
+with open(cnew, "w") as fout:
     fout.writelines(csvout)
-        
-print(f"{goodtally} good out of {tally}")
 
+print(f"{goodtally} good out of {tally}")

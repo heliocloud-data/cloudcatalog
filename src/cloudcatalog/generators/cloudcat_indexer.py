@@ -44,6 +44,7 @@ VALID_TS_RE = re.compile(
     re.VERBOSE,
 )
 
+
 def validate_and_fix_timestamp(ts: str, *, field_name: str, dataset_id: str) -> str:
     """
     Check if ts matches required formats.
@@ -92,6 +93,7 @@ def validate_and_fix_timestamp(ts: str, *, field_name: str, dataset_id: str) -> 
 
     return repaired
 
+
 def extract_year(iso8601: str) -> int:
     if not isinstance(iso8601, str) or len(iso8601) < 4:
         raise ValueError(f"Invalid ISO timestamp: {iso8601!r}")
@@ -115,7 +117,7 @@ def parse_s3_prefix(s3_prefix: str) -> tuple[str, str]:
     if not isinstance(s3_prefix, str) or not s3_prefix.startswith("s3://"):
         raise ValueError(f"Not an s3:// prefix: {s3_prefix!r}")
 
-    rest = s3_prefix[len("s3://"):]  # bucket/prefix...
+    rest = s3_prefix[len("s3://") :]  # bucket/prefix...
     parts = rest.split("/", 1)
     bucket = parts[0].strip()
     key_prefix = parts[1] if len(parts) == 2 else ""
@@ -162,13 +164,14 @@ def load_catalog(path: str | os.PathLike[str]) -> list[dict]:
     raise ValueError("catalog.json does not contain a list of entries")
 
 
-def render_fetch_template(*, dataset_id: str, start: str, stop: str, base_s3: str) -> str:
+def render_fetch_template(
+    *, dataset_id: str, start: str, stop: str, base_s3: str
+) -> str:
     """
     Keep the user's template verbatim except for the substituted values.
     """
     return (
-        "import cloudcatalog"
-        + "\n"
+        "import cloudcatalog" + "\n"
         "dataset_id = "
         + repr(dataset_id)
         + "\n"
@@ -196,15 +199,17 @@ def render_index_html(entry: dict, *, ext: str = "csv") -> str:
     stop = str(entry["stop"])
 
     start = validate_and_fix_timestamp(start, field_name="start", dataset_id=id_)
-    stop  = validate_and_fix_timestamp(stop,  field_name="stop",  dataset_id=id_)
-    
+    stop = validate_and_fix_timestamp(stop, field_name="stop", dataset_id=id_)
+
     start_year = extract_year(start)
     stop_year = extract_year(stop)
 
     bucket, key_prefix = parse_s3_prefix(index_prefix)
     base_s3 = base_s3_from_index_prefix(index_prefix)
 
-    fetch_code = render_fetch_template(dataset_id=id_, start=start, stop=stop, base_s3=base_s3)
+    fetch_code = render_fetch_template(
+        dataset_id=id_, start=start, stop=stop, base_s3=base_s3
+    )
 
     lines = [
         "<!doctype html>",
@@ -286,7 +291,7 @@ def write_indexes(
             continue
 
         html = render_index_html(e, ext=ext)
-        key_prefix = re.sub("s3://","",str(e["index"]))
+        key_prefix = re.sub("s3://", "", str(e["index"]))
         out = out_dir + key_prefix
         out = Path(out)
         out.mkdir(parents=True, exist_ok=True)
@@ -299,9 +304,13 @@ def write_indexes(
 if __name__ == "__main__":
     import argparse
 
-    ap = argparse.ArgumentParser(description="Generate per-id HTML index pages from catalog.json")
+    ap = argparse.ArgumentParser(
+        description="Generate per-id HTML index pages from catalog.json"
+    )
     ap.add_argument("catalog", help="Path to catalog.json")
-    ap.add_argument("--out", default="indexes/", help="Output directory (default: indexes/)")
+    ap.add_argument(
+        "--out", default="indexes/", help="Output directory (default: indexes/)"
+    )
     ap.add_argument("--ext", default="csv", help="Index file extension (default: csv)")
     args = ap.parse_args()
 

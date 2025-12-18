@@ -1,10 +1,11 @@
-""" Versions a file. Given a file, adds _v#, where # is the first unused
-    number not existing already.
+"""Versions a file. Given a file, adds _v#, where # is the first unused
+number not existing already.
 """
 
 import os
 import shutil
 from datetime import datetime
+
 
 def version_file_timestamp(filepath):
     if filepath.startswith("s3://"):
@@ -13,6 +14,7 @@ def version_file_timestamp(filepath):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     versioned_path = f"{filepath}.{timestamp}.bak"
     shutil.move(filepath, versioned_path)
+
 
 def version_file_numeric(filepath):
     if filepath.startswith("s3://"):

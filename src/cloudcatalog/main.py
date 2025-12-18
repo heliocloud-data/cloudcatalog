@@ -132,21 +132,25 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
     """
     diag = False
 
-    if diag: print("Trying ",s3url)
+    if diag:
+        print("Trying ", s3url)
     try:
-        if diag: print("Calling unsigned")
+        if diag:
+            print("Calling unsigned")
         status, catalog = fetch_S3(
             s3url, unsigned=True, rawbytes=rawbytes, **client_kwargs
         )
     except:
         try:
-            if diag: print("Calling signed")
+            if diag:
+                print("Calling signed")
             status, catalog = fetch_S3(
                 s3url, unsigned=False, rawbytes=rawbytes, **client_kwargs
             )
         except:
             try:
-                if diag: print("Calling region")
+                if diag:
+                    print("Calling region")
                 status, catalog = fetch_S3(
                     s3url,
                     unsigned=True,
@@ -156,19 +160,22 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
                 )
             except:
                 try:
-                    if diag: print("Calling url")
+                    if diag:
+                        print("Calling url")
                     status, catalog = fetch_url(s3url, rawbytes=rawbytes)
                     if status == 404:
                         return None
                 except:
                     try:
-                        if diag: print("Calling local file")
+                        if diag:
+                            print("Calling local file")
                         with open(s3url) as fin:
                             catalog = json.load(fin)
                         rawbytes = False
                         status = True
                     except:
-                        if diag: print("Cannot fetch catalog, exiting.")
+                        if diag:
+                            print("Cannot fetch catalog, exiting.")
                         return None
     if rawbytes:
         fr_bytes_file = BytesIO()
@@ -326,7 +333,7 @@ class CloudCatalog:
         bucket_name: str,
         cache_folder: Optional[str] = None,
         cache: bool = False,
-        altcatalog = None,
+        altcatalog=None,
         **client_kwargs,
     ) -> None:
         """
@@ -658,7 +665,7 @@ class CloudCatalog:
 
         if len(frs) == 0:
             return frs
-            
+
         frs = pd.concat(frs)
 
         # Filter catalog dataframe to exact requested dates
