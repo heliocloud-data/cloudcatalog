@@ -763,6 +763,57 @@ class CloudCatalog:
                 just in case for consistency"""
             process_func(s3_url, str(row["start"]), str(row["stop"]), row["filesize"])
 
+    def reverse_lookup_ids(
+        self,
+        partial_path: str,
+        *,
+        regex: bool = False,
+        ignore_case: bool = False,
+    ) -> list[str]:
+        """
+        Reverse-lookup dataset IDs by matching a user-supplied partial path (or regex)
+        against each catalog entry's 'index' field.
+
+        Parameters
+        ----------
+        partial_path : str
+            Example: 'genesis/gim/3dl2_gim'
+        regex : bool
+            If False (default), treat partial_path as a literal substring (escaped).
+            If True, treat partial_path as a raw regex pattern.
+        ignore_case : bool
+            Case-insensitive matching when True.
+
+        Returns
+        -------
+        list[str]
+            All entry['id'] values whose entry['index'] matches.
+        """
+        flags = re.IGNORECASE if ignore_case else 0
+        pattern = partial_path if regex else re.escape(partial_path)
+        rx = re.compile(pattern, flags)
+
+        # CloudCatalog in this project typically exposes get_catalog(); prefer it if present
+        # so we match how the object represents catalog.json internally.
+        try:
+            catalog_obj = self.get_catalog()
+        except Exception:
+            catalog_obj = getattr(self, "catalog", {})  # fallback
+
+        entries = catalog_obj.get("catalog", []) if isinstance(catalog_obj, dict) else []
+        out: list[str] = []
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            idx = entry.get("index", "")
+            if isinstance(idx, str) and rx.search(idx):
+                entry_id = entry.get("id")
+                if isinstance(entry_id, str):
+                    out.append(entry_id)
+
+        return out
+
 
 class EntireCatalogSearch:
     """Use to search through all the catalogs by using the global catalog
