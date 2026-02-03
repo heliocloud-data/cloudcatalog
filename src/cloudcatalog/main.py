@@ -72,8 +72,65 @@ def s3url_to_bucketkey(s3url, bucket_prefix="s3://"):
     myfilekey = s[1] if len(s) > 1 else ""  # Want None if no key?
     return mybucket, myfilekey
 
+def fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=True):
+    # Ranged behavior: read only the first chunk(s)
+    # Start with a small-ish chunk; grow if we haven't captured enough lines.
+    # Keep an upper bound to avoid large downloads.
 
-def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, **client_kwargs):
+    chunk = 4096
+    if max_bytes is not None:
+        chunk = min(chunk, int(max_bytes))
+
+    want_lines = int(max_lines) if max_lines is not None else None
+    got = bytearray()
+    start = 0
+
+    while True:
+        end = start + chunk - 1
+        if max_bytes is not None:
+            end = min(end, int(max_bytes) - 1)
+        if end < start:
+            break
+
+        response = s3_client.get_object(
+            Bucket=mybucket,
+            Key=mykey,
+            Range=f"bytes={start}-{end}",
+        )
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+
+        # Range requests typically return 206 on success. :contentReference[oaicite:1]{index=1}
+        if "Body" not in response or status not in (200, 206):
+            break
+
+        part = response["Body"].read()
+        if not part:
+            break
+
+        got.extend(part)
+
+        if want_lines is not None and got.count(b"\n") >= want_lines:
+            break
+
+        # Stop if we've reached our cap
+        if max_bytes is not None and len(got) >= int(max_bytes):
+            break
+
+        # If the server returned fewer bytes than requested, we're at EOF.
+        if len(part) < (end - start + 1):
+            break
+
+        # Next range; optionally grow chunk to reduce round-trips
+        start = end + 1
+        chunk = min(chunk * 2, 64 * 1024)
+        if max_bytes is not None:
+            chunk = min(chunk, int(max_bytes) - len(got))
+
+    data = bytes(got)
+    return True, data if rawbytes else True, data.decode("utf-8", errors="replace")
+
+
+def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, **client_kwargs):
     # default is JSON, but can return raw bytes
     # print("Trying S3, unsigned=",unsigned,"region=",region)
     bucket_prefix = "s3://"
@@ -97,6 +154,11 @@ def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, **client_kwargs)
         else:
             s3_client = boto3.client("s3", **client_kwargs)
 
+    # little optimization hack here, for CSV files where you only want
+    # the first few lines
+    if max_lines != None:
+        return fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=rawbytes)
+    
     response = s3_client.get_object(Bucket=mybucket, Key=mykey)
     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     # print("  Success S3 unsigned",status)
@@ -123,7 +185,7 @@ def fetch_url(s3url, rawbytes=False):
     return status, catalog
 
 
-def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
+def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, max_lines=None, **client_kwargs):
     """To get around vagualities of S3 access, this tries a cascade of:
     straight fetch of S3 using your existing permissions
     fetch S3 unsigned/anonymous
@@ -138,14 +200,14 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
         if diag:
             print("Calling unsigned")
         status, catalog = fetch_S3(
-            s3url, unsigned=True, rawbytes=rawbytes, **client_kwargs
+            s3url, unsigned=True, rawbytes=rawbytes, max_lines=max_lines, **client_kwargs
         )
     except:
         try:
             if diag:
                 print("Calling signed")
             status, catalog = fetch_S3(
-                s3url, unsigned=False, rawbytes=rawbytes, **client_kwargs
+                s3url, unsigned=False, rawbytes=rawbytes, max_lines=max_lines, **client_kwargs
             )
         except:
             try:
@@ -156,6 +218,7 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, **client_kwargs):
                     unsigned=True,
                     region=region,
                     rawbytes=rawbytes,
+                    max_lines=max_lines,
                     **client_kwargs,
                 )
             except:
@@ -463,6 +526,35 @@ class CloudCatalog:
                 f"Invalid catalog with multiple entries with the same ID. ID: {entry_id}"
             )
         return entries[0]
+
+    def robust_get_entry(self, id: str):
+        # adds case-insensitivity to get_entry()
+        cat = self.get_catalog()
+
+        # Case A: get_catalog() returns raw JSON dict
+        if isinstance(cat, dict):
+            entries = cat.get("catalog", [])
+        else:
+            # Case B: get_catalog() returns CatalogRegistry-like object
+            entries = getattr(cat, "catalog", None)
+            if entries is None:
+                # last resort: try a method commonly provided by registries
+                entries = getattr(cat, "get_entries", lambda: None)()
+            if entries is None:
+                raise RuntimeError("Unable to access catalog entries from get_catalog()")
+
+        # Exact match first
+        for e in entries:
+            if isinstance(e, dict) and e.get("id") == id:
+                return e
+
+        # Optional: case-insensitive fallback
+        lid = id.lower()
+        for e in entries:
+            if isinstance(e, dict) and isinstance(e.get("id"), str) and e["id"].lower() == lid:
+                return e
+
+        return None
 
     def date2datetime(self, start_date):
         # Make dates conform with Restricted ISO 8601 standard
@@ -814,7 +906,59 @@ class CloudCatalog:
 
         return out
 
+    def sample_file(self, id: str) -> str:
+        """
+        Return a sample data filename for a dataset by reading the first
+        data line of its first index CSV.
 
+        Index file format:
+            [index]/[id]_[YYYY].csv
+
+        The returned filename is taken from the 3rd CSV field.
+
+        Parameters
+        ----------
+        id : str
+            Dataset identifier.
+
+        Returns
+        -------
+        str
+            Sample data filename.
+
+        Raises
+        ------
+        KeyError
+            If the dataset id is not found.
+        RuntimeError
+            If the CSV cannot be read or is malformed.
+        """
+        entry = self.get_entry(id)
+        if entry is None:
+            raise KeyError(f"Dataset id not found: {id}")
+        
+        index = entry.get("index")
+        start = entry.get("start")
+        if not index or not start:
+            raise RuntimeError(f"Missing index or start for dataset {id}")
+
+        year = start[:4]
+        loc = f"{index.rstrip('/')}/{id}_{year}.csv"
+
+        try:
+            fr_bytes_file = fetch_S3orURL(loc, rawbytes=True, max_lines=2)
+        except:
+            raise RuntimeError(f"Failed to read index CSV {loc}") from e
+
+        df = pd.read_csv(fr_bytes_file, nrows=1)
+
+        if df.shape[1] < 3:
+            raise RuntimeError(f"Index CSV has fewer than 3 columns: {loc}")
+
+        return str(df.iloc[0,2])
+
+
+    
 class EntireCatalogSearch:
     """Use to search through all the catalogs by using the global catalog
     to get all the local catalogs."""
