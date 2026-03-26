@@ -1,21 +1,23 @@
+""" tests reverse lookup aka give file path for a dataid """
+
+import os
 import pytest
 import cloudcatalog
-import os
 
 
 def test_reverse_lookup():
-
+    """ core test """
     fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1/")
-    id = fr.reverse_lookup_ids("genesis/gim/3dl2_gim")[0]
-    print("reverse lookup", id)
-    # id="mms_hmi"
-    # id = "GENESIS_3DL2_GIM"
-    test = fr.get_entry(id)
+    dataid = fr.reverse_lookup_ids("genesis/gim/3dl2_gim")[0]
+    print("reverse lookup", dataid)
+    # dataid="mms_hmi"
+    # dataid = "GENESIS_3DL2_GIM"
+    test = fr.get_entry(dataid)
     print("fetched", test)
-    sample = fr.sample_file(id)
-    print(id, sample)
+    sample = fr.sample_file(dataid)
+    print(dataid, sample)
     print("files reside in", os.path.dirname(sample))
-
+    assert True
 
 # problem, for this test case the 2001 files are in .../2001/, but
 # the 2002 files are in .../2002/, etc

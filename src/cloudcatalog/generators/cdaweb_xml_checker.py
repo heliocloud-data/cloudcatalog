@@ -1,12 +1,3 @@
-import csv
-import json
-import os
-import requests
-import re
-import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
-from collections import defaultdict
-
 """
 Parsing via https://spdf.gsfc.nasa.gov/pub/catalogs/00readme.txt
 Note they say the 'all.xml' is incomplete, so for unlisted items
@@ -15,11 +6,20 @@ we do a best guess on YYYYMMDD.
 Syntax for a sample CSV metadata file would be: dataid, base, pattern
 e.g. ace_l2,ace/orbit/level_2_cdaweb/,ac_or_def_%Y%m%d_%Q.cdf
 
-
 """
+
+import csv
+import json
+import os
+import re
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
+from collections import defaultdict
+import requests
 
 
 def load_fromcsv(csv_path, ensure_prefix=None):
+    """reads CSV metadata file in specified format"""
     regex_base = {}
     regex_matchme = {}
     regex_pattern = {}
@@ -30,7 +30,7 @@ def load_fromcsv(csv_path, ensure_prefix=None):
             regex_matchme[dataid] = row["matchme"]
             regex_pattern[dataid] = strftime_to_regex(row["datepattern"])
             url_cleaned = row["indexhome"]
-            if ensure_prefix != None and not url_cleaned.startswith(ensure_prefix):
+            if ensure_prefix is not None and not url_cleaned.startswith(ensure_prefix):
                 url_cleaned = ensure_prefix + url_cleaned
             regex_base[dataid] = url_cleaned
 
@@ -38,6 +38,7 @@ def load_fromcsv(csv_path, ensure_prefix=None):
 
 
 def extract_matchme(fullname, regex_matchme):
+    """quick wrapper for matching filename in regex dict"""
     basename = os.path.basename(fullname)
     for key, value in regex_matchme.items():
         if value in fullname:
@@ -45,8 +46,8 @@ def extract_matchme(fullname, regex_matchme):
     return None, basename
 
 
-def load_fromjson(json_path):
-    ### UNTESTED!
+def load_fromjson(json_path, ensure_prefix=None):
+    """UNTESTED!"""
     with open(json_path, "r", encoding="utf-8") as file:
         metadata = json.load(file)
     regex_base = {}
@@ -55,7 +56,7 @@ def load_fromjson(json_path):
         dataid = item.get("dataid", [])
         url_cleaned = item.get("base", [])
         filenaming = item.get("pattern", [])
-        if ensure_prefix != None and not url_cleaned.startswith(ensure_prefix):
+        if ensure_prefix is not None and not url_cleaned.startswith(ensure_prefix):
             url_cleaned = ensure_prefix + url_cleaned
         regex_base[dataid] = url_cleaned
         regex_pattern[dataid] = strftime_to_regex(filenaming)
@@ -64,18 +65,19 @@ def load_fromjson(json_path):
 
 
 def load_fromxml(xml_path="./all.xml", strip_me=None, ensure_prefix=None):
+    """read CDAWeb-provided all.xml metadata file"""
     # Define file name and URL
-    FILE_NAME = xml_path
-    FILE_URL = "https://spdf.gsfc.nasa.gov/pub/catalogs/all.xml"
+    file_name = xml_path
+    file_url = "https://spdf.gsfc.nasa.gov/pub/catalogs/all.xml"
     # Check if file exists locally; if not, download it
-    if not os.path.exists(FILE_NAME):
-        print(f"Downloading {FILE_NAME}...")
-        response = requests.get(FILE_URL)
-        with open(FILE_NAME, "wb") as file:
+    if not os.path.exists(file_name):
+        print(f"Downloading {file_name}...")
+        response = requests.get(file_url)
+        with open(file_name, "wb") as file:
             file.write(response.content)
 
     # Parse XML from the local file
-    with open(FILE_NAME, "r", encoding="utf-8") as file:
+    with open(file_name, "r", encoding="utf-8") as file:
         tree = ET.parse(file)
         root = tree.getroot()
 
@@ -104,9 +106,9 @@ def load_fromxml(xml_path="./all.xml", strip_me=None, ensure_prefix=None):
                     url_cleaned = re.sub(
                         r"https://.*?.nasa.gov/", "", url_text
                     )  # Remove web address
-                    if strip_me != None:
+                    if strip_me is not None:
                         url_cleaned = re.sub(f"^{strip_me}", "", url_cleaned)
-                    if ensure_prefix != None and not url_cleaned.startswith(
+                    if ensure_prefix is not None and not url_cleaned.startswith(
                         ensure_prefix
                     ):
                         url_cleaned = ensure_prefix + url_cleaned
@@ -121,6 +123,10 @@ def load_fromxml(xml_path="./all.xml", strip_me=None, ensure_prefix=None):
 
 
 def guess_regex(basename):
+    """
+    Trial-and-error parsing of the many CDAWeb time formats,
+    many of which are non-standard
+    """
     patterns = [
         "[_/]%Y%m%d[tT]%H%M%S",
         "[_/]%Y%m%d%H%M%S_",
@@ -144,9 +150,10 @@ def guess_regex(basename):
 ### THIS NEEDS WORK!!!  But it'll be cleaner
 
 
-def xml_to_dicts():
-    # copy from earlier, outcome is:
+def xml_to_dicts(xmlfilenamingplusxmldataids):
+    """stub, copy from earlier, outcome is a diction of regexes"""
     metadata = {}
+    dataids = {}
     for xmldataid in xmlfilenamingplusxmldataids:
         filenaming = "???"  # regex for parsing time
         url = "???"  # path for indices etc
@@ -154,34 +161,36 @@ def xml_to_dicts():
         regex = re.sub("https://cdaweb.gsfc.nasa.gov/", "", filenaming)
         keyid = re.sub(r"(\/\d+)+$", "", filenaming)
         metadata.setdefault(keyid, []).append((regex, url, dataid))
-        dataids[rshort] = xmldataid
-    return regexes, dataids
+        dataids[dataid] = dataid
+    return metadata, dataids
 
 
 def efficient_regex(metadata, fullname, filename):
+    """For CDAWeb-style entries, guesses file patterns when not known"""
     keyid = re.sub(r"(\/\d+)+$", "", os.path.dirname(fullname))
     try:
         reg_path_id_sets = metadata[keyid]
     except:
         # generate new entries on the fly
         x_reg = guess_regex(filename)
-        regs = [x_reg]
-        dataid_m = re.match(r".*_\d{4}", basename)
+        # regs = [x_reg]
+        dataid_m = re.match(r".*_\d{4}", fullname)
         if dataid_m:
             dataid = dataid_m[0][:-5].upper()
         else:
             dataid = "None"  # note use of string not NoneType
         reg_path_id_sets = [(x_reg, keyid, dataid)]
-        metadata[keyid] = [reg_path_id]
+        metadata[keyid] = [dataid]
 
     for trio in reg_path_id_sets:
         starttime = extract_datetime(filename, trio[0], form="str")
-        if starttime != None:
+        if starttime is not None:
             return trio[2], starttime, trio[0], trio[1]
     return None, None, None, None
 
 
-def efficient_parse_line(line, metadata):
+def efficient_parse_line(line, metadata, strip_me=None, lastdate=None, csvflag=None):
+    """For a CDAWeb line, does multiple methods to best-derive dataids"""
     valid = True
     if csvflag:
         lineset = line.rstrip().split(",")
@@ -190,17 +199,18 @@ def efficient_parse_line(line, metadata):
         lineset = line.rstrip().split()
     filesize = lineset[-2]
     fullname = lineset[-1]
-    if strip_me != None and fullname.startswith(strip_me):
+    if strip_me is not None and fullname.startswith(strip_me):
         fullname = fullname[len(strip_me) :]
     filename = os.path.basename(fullname)
     dataid, starttime, x_reg, path = efficient_regex(metadata, fullname, filename)
     if dataid == "None":
         valid = False
-    if starttime == None:
-        global_badregexes[x_reg] = filename
-        valid = False
+    # if starttime is None:
+    #    global_badregexes[x_reg] = filename
+    #    valid = False
     queueset = dataid + ":" + starttime[:4]
-    if len(lineset) > 3 and lastdate != None and str2datetime(lineset[0]) > lastdate:
+    if len(lineset) > 3 and lastdate is not None:
+        # and str2datetime(lineset[0]) > lastdate:
         status = 3
     else:
         status = 2
@@ -208,6 +218,7 @@ def efficient_parse_line(line, metadata):
 
 
 def new_extract_just_dataid(fullname, shortprefix=None):
+    """Not yet used, Simple extract of dataid from filename"""
     basename = os.path.basename(fullname)
     m = re.match(r"^(.*?)(?=_[0-9]{4})", basename)
     if m:
@@ -219,9 +230,10 @@ def new_extract_just_dataid(fullname, shortprefix=None):
 
 
 def extract_just_dataid(fullname):
+    """Simple extract of dataid from filename"""
     basename = os.path.basename(fullname)
     # dataid_m = re.match(r".*_\d{4}",basename)
-    # if dataid_m != None:
+    # if dataid_m is not None:
     #    dataid = dataid_m[0][:-5].upper()
     # else:
     #    dataid = None
@@ -232,7 +244,7 @@ def extract_just_dataid(fullname):
         dataid = m.group(1).upper()
     else:
         dataid = None
-    if dataid == None or re.match(r"^[0-9]{4}", dataid):
+    if dataid is None or re.match(r"^[0-9]{4}", dataid):
         # handles SDAC-like cases where dataid is in the path not filename
         pieces = fullname.split("/")
         for ip in range(len(pieces) - 1, 0, -1):
@@ -256,7 +268,7 @@ def trio_indexdir(fullname, add_prefix=None):
     """
     indexdir = "/".join(fullname.split("/")[:3])
     indexdir += "/indices"
-    if add_prefix != None:
+    if add_prefix is not None:
         indexdir = add_prefix + indexdir
     return indexdir
 
@@ -269,19 +281,21 @@ def best_indexdir(fullname, short_prefix=None, add_prefix=None):
     Optional 'add_prefix' prepends to it, usually with an S3 bucket name
     """
     indexdir = os.path.dirname(fullname)
-    if short_prefix != None:
+    if short_prefix is not None:
         blen = min(len(short_prefix.split("/")), len(indexdir.split("/")))
         indexdir = "/".join(indexdir.split("/")[:blen])
         indexdir += "/indices"
-    if add_prefix != None:
+    if add_prefix is not None:
         indexdir = add_prefix + indexdir
     return indexdir
 
 
 def extract_regex(regex_base, regex_pattern, fullname):
-    # Function to retrieve basedir and regex by dataid aka serviceprovider_ID
+    """
+    Function to retrieve basedir and regex by dataid aka serviceprovider_ID
+    """
     dataid, basename = extract_just_dataid(fullname)
-    if dataid != None:
+    if dataid is not None:
         try:
             x_regex = regex_pattern[dataid]
             basedir = regex_base[dataid]
@@ -302,7 +316,7 @@ def extract_regex(regex_base, regex_pattern, fullname):
                 if test:
                     return dataid, basedir, x_regex
     """dataid, basedir, x_regex = slow_extract_regex(regex_base, regex_pattern, fullname)
-    if dataid != None:
+    if dataid is not None:
         test = re.search(x_regex,fullname)
         if test:
             return dataid, basedir, x_regex
@@ -310,7 +324,7 @@ def extract_regex(regex_base, regex_pattern, fullname):
     # not in 'all.xml' or did not work, so let us add it
     x_regex = guess_regex(fullname)
     dataid_m = re.match(r".*_\d{4}", basename)
-    if dataid_m == None:
+    if dataid_m is None:
         return None, None, None
     dataid = dataid_m[0][:-5].upper()
     basedir = os.path.dirname(fullname)
@@ -320,7 +334,9 @@ def extract_regex(regex_base, regex_pattern, fullname):
 
 
 def slow_extract_regex(regex_base, regex_pattern, fullname):
-    # Function to retrieve base and regex by dataid aka serviceprovider_ID
+    """
+    Function to retrieve base and regex by dataid aka serviceprovider_ID
+    """
     basename = os.path.basename(fullname)
     for dataid, base in regex_base.items():
         if fullname.startswith(base):
@@ -339,7 +355,7 @@ def slow_extract_regex(regex_base, regex_pattern, fullname):
 
 
 def strftime_to_regex(pattern):
-    # Replace %Q fields with ".*" as they are not date-related
+    """Replace %Q fields with ".*" as they are not date-related"""
     pattern = re.sub(r"%Q[0-9]*", r".*", pattern)
 
     format_mapping = {
@@ -360,8 +376,8 @@ def strftime_to_regex(pattern):
         if group_counts[group_name] == 0:
             group_counts[group_name] += 1
             return f"(?P<{group_name}>{pattern_str})"
-        else:
-            return ""  # 🧹 Ignore duplicate field entirely
+
+        return ""  # 🧹 Ignore duplicate field entirely
 
     # Replace only known formats; skip all others
     fmt_regex = re.compile("|".join(re.escape(k) for k in format_mapping.keys()))
@@ -376,8 +392,8 @@ def strftime_to_regex(pattern):
     return regex_pattern
 
 
-# Function to extract datetime from filename using filenaming pattern
 def extract_datetime(filename, regex_pattern, form="dt"):
+    """Function to extract datetime from filename using filenaming pattern"""
     if not regex_pattern:
         regex_pattern = guess_regex(filename)
     match = re.search(regex_pattern, filename, re.IGNORECASE)
@@ -406,8 +422,7 @@ def extract_datetime(filename, regex_pattern, form="dt"):
             )
             if form == "str":
                 return mydate.strftime("%Y-%m-%dT%H:%M:%SZ")
-            else:
-                return mydate
+            return mydate
 
         except:  # ValueError:
             pass
@@ -421,6 +436,7 @@ def extract_datetime(filename, regex_pattern, form="dt"):
 
 # Test case
 def test_case():
+    """internal test"""
     log_entry = "2003-12-16T19:59:22.0000000000 GMT     189952 pub/data/isis/topside_sounder/ionogram_cdf/isis1/ODG_14N_359E/1969/345/i1_av_odg_1969345140242_v01.cdf"
     fullname = log_entry.split()[-1]
 

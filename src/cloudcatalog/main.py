@@ -24,13 +24,13 @@ myfiles = fr.request_cloud_catalog(
 from io import BytesIO
 from datetime import datetime
 from math import ceil
-from typing import List, Dict, Tuple, Union, Optional, Callable
+from typing import List, Dict, Tuple, Optional, Callable  # Union
 import os
 import json
-import requests
 import logging
-import dateutil
 import re
+import requests
+import dateutil
 import pandas as pd
 import boto3
 from botocore import UNSIGNED
@@ -73,11 +73,13 @@ def s3url_to_bucketkey(s3url, bucket_prefix="s3://"):
     return mybucket, myfilekey
 
 
-def fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=True):
-    # Ranged behavior: read only the first chunk(s)
-    # Start with a small-ish chunk; grow if we haven't captured enough lines.
-    # Keep an upper bound to avoid large downloads.
-
+def fetch_S3_n_lines(
+    s3_client, mybucket, mykey, max_lines=2, rawbytes=True, max_bytes=None
+):
+    """Ranged behavior: read only the first chunk(s)
+    Start with a small-ish chunk; grow if we haven't captured enough lines.
+    Keep an upper bound to avoid large downloads.
+    """
     chunk = 4096
     if max_bytes is not None:
         chunk = min(chunk, int(max_bytes))
@@ -134,13 +136,13 @@ def fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=True):
 def fetch_S3(
     s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, **client_kwargs
 ):
-    # default is JSON, but can return raw bytes
+    """default is JSON, but can return raw bytes"""
     # print("Trying S3, unsigned=",unsigned,"region=",region)
     bucket_prefix = "s3://"
     mybucket, mykey = s3url_to_bucketkey(s3url, bucket_prefix=bucket_prefix)
     # print("Looking for: ",mybucket,mykey)
     if unsigned:
-        if region != None:
+        if region is not None:
             s3_client = boto3.client(
                 "s3",
                 config=Config(signature_version=UNSIGNED),
@@ -152,15 +154,17 @@ def fetch_S3(
                 "s3", config=Config(signature_version=UNSIGNED), **client_kwargs
             )
     else:
-        if region != None:
+        if region is not None:
             s3_client = boto3.client("s3", region=region, **client_kwargs)
         else:
             s3_client = boto3.client("s3", **client_kwargs)
 
     # little optimization hack here, for CSV files where you only want
     # the first few lines
-    if max_lines != None:
-        return fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=rawbytes)
+    if max_lines is not None:
+        return fetch_S3_n_lines(
+            s3_client, mybucket, mykey, max_lines=2, rawbytes=rawbytes
+        )
 
     response = s3_client.get_object(Bucket=mybucket, Key=mykey)
     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
@@ -177,7 +181,7 @@ def fetch_S3(
 
 
 def fetch_url(s3url, rawbytes=False):
-    # default is JSON, but can return raw bytes
+    """default is JSON, but can return raw bytes"""
     httpurl = s3url_to_https(s3url)
     response = requests.get(httpurl)
     status = response.status_code
@@ -258,8 +262,8 @@ def fetch_S3orURL(
         fr_bytes_file.write(catalog)
         fr_bytes_file.seek(0)
         return fr_bytes_file
-    else:
-        return catalog
+
+    return catalog
 
 
 class CatalogRegistry:
@@ -371,10 +375,9 @@ class CatalogRegistry:
                 raise ValueError(
                     "Entries do not all have unique names. You may enable force_first to choose first option."
                 )
-            else:
-                raise ValueError(
-                    "Entries do not all have unique names but have different regions, please further specify region_prefix."
-                )
+            raise ValueError(
+                "Entries do not all have unique names but have different regions, please further specify region_prefix."
+            )
         elif len(registries) == 0:
             raise KeyError("No endpoint found with given name and region_prefix.")
         return registries[0]["endpoint"]
@@ -441,12 +444,12 @@ class CloudCatalog:
         self.altcatalog = altcatalog
 
         catname = "catalog.json"
-        if altcatalog != None:
+        if altcatalog is not None:
             catname = altcatalog
 
         self.catalog = fetch_S3orURL(bucket_name + "/" + catname, **client_kwargs)
 
-        if self.catalog == None:
+        if self.catalog is None:
             raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
 
         # Check catalog format assumptions
@@ -541,7 +544,7 @@ class CloudCatalog:
         return entries[0]
 
     def robust_get_entry(self, id: str):
-        # adds case-insensitivity to get_entry()
+        """adds case-insensitivity to get_entry()"""
         cat = self.get_catalog()
 
         # Case A: get_catalog() returns raw JSON dict
@@ -576,7 +579,7 @@ class CloudCatalog:
         return None
 
     def date2datetime(self, start_date):
-        # Make dates conform with Restricted ISO 8601 standard
+        """Make dates conform with Restricted ISO 8601 standard"""
         if start_date[-1] != "Z":
             start_date += "Z"
         # Convert dates to datetime object
@@ -590,12 +593,13 @@ class CloudCatalog:
         return start_date
 
     def ceil_year(self, date):
+        """quick way to return fractional year"""
         return ceil(
             date.year + (date - datetime(date.year, 1, 1)).total_seconds() * 3.17098e-8
         )
 
     def year_range(self, catalog_start_date, start_date, direction="max"):
-        # assuming Z ends date
+        """assuming Z ends date"""
         catalog_year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
         if start_date is None:
             year_start_date = catalog_year_start_date
@@ -717,7 +721,7 @@ class CloudCatalog:
                         self.bucket_name + "/" + loc + filename, rawbytes=True
                     )
 
-                if fr_bytes_file == None:
+                if fr_bytes_file is None:
                     continue
 
                 if filepath is not None:
@@ -968,7 +972,7 @@ class CloudCatalog:
 
         try:
             fr_bytes_file = fetch_S3orURL(loc, rawbytes=True, max_lines=2)
-        except:
+        except Exception as e:
             raise RuntimeError(f"Failed to read index CSV {loc}") from e
 
         df = pd.read_csv(fr_bytes_file, nrows=1)

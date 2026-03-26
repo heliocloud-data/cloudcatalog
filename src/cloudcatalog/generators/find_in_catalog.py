@@ -1,7 +1,10 @@
+"""Looks in CDAWeb collections"""
+
 import json
 
 
 def find_ids_with_cdaweb(json_path):
+    """reads CloudCatalog catalog.json to find CDAWeb 'collections' items"""
     with open(json_path, "r") as f:
         data = json.load(f)
 

@@ -1,18 +1,23 @@
+""" GUI for invoking the manifest-catalog updater tools """
+
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 import os
 from cloudcatalog.updater.catalog_updater import update_catalog_from_json
-from cloudcatalog.updater.catalog_updater import update_catalog_from_csv
+#from cloudcatalog.updater.catalog_updater import update_catalog_from_csv
 
 
 def updater_gui():
+    """ core GUI functions """
     def browse_file(var):
+        """ system default file browser """
         file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
         if file_path:
             var.set(file_path)
 
     def on_submit():
+        """ reads JSON and puts up GUI """
         json_path_val = json_path_var.get()
         json_updates_val = json_updates_var.get()
         collections_filter_val = filter_var.get().strip() or None
