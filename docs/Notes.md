@@ -2,7 +2,7 @@
 
 To build this, first install build tools (if not yet done), then build, then test the wheel.  Updated Sept 2024.
 
-* python -m build
+* python -m build --installer uv
 
 Test the wheel
 * pip install cloudcatalog-*-py3-none-any.whl

@@ -72,6 +72,7 @@ def s3url_to_bucketkey(s3url, bucket_prefix="s3://"):
     myfilekey = s[1] if len(s) > 1 else ""  # Want None if no key?
     return mybucket, myfilekey
 
+
 def fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=True):
     # Ranged behavior: read only the first chunk(s)
     # Start with a small-ish chunk; grow if we haven't captured enough lines.
@@ -130,7 +131,9 @@ def fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=True):
     return True, data if rawbytes else True, data.decode("utf-8", errors="replace")
 
 
-def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, **client_kwargs):
+def fetch_S3(
+    s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, **client_kwargs
+):
     # default is JSON, but can return raw bytes
     # print("Trying S3, unsigned=",unsigned,"region=",region)
     bucket_prefix = "s3://"
@@ -158,7 +161,7 @@ def fetch_S3(s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, 
     # the first few lines
     if max_lines != None:
         return fetch_S3_n_lines(s3_client, max_lines=2, rawbytes=rawbytes)
-    
+
     response = s3_client.get_object(Bucket=mybucket, Key=mykey)
     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     # print("  Success S3 unsigned",status)
@@ -185,7 +188,9 @@ def fetch_url(s3url, rawbytes=False):
     return status, catalog
 
 
-def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, max_lines=None, **client_kwargs):
+def fetch_S3orURL(
+    s3url, region="us-east-1", rawbytes=False, max_lines=None, **client_kwargs
+):
     """To get around vagualities of S3 access, this tries a cascade of:
     straight fetch of S3 using your existing permissions
     fetch S3 unsigned/anonymous
@@ -200,14 +205,22 @@ def fetch_S3orURL(s3url, region="us-east-1", rawbytes=False, max_lines=None, **c
         if diag:
             print("Calling unsigned")
         status, catalog = fetch_S3(
-            s3url, unsigned=True, rawbytes=rawbytes, max_lines=max_lines, **client_kwargs
+            s3url,
+            unsigned=True,
+            rawbytes=rawbytes,
+            max_lines=max_lines,
+            **client_kwargs,
         )
     except:
         try:
             if diag:
                 print("Calling signed")
             status, catalog = fetch_S3(
-                s3url, unsigned=False, rawbytes=rawbytes, max_lines=max_lines, **client_kwargs
+                s3url,
+                unsigned=False,
+                rawbytes=rawbytes,
+                max_lines=max_lines,
+                **client_kwargs,
             )
         except:
             try:
@@ -541,7 +554,9 @@ class CloudCatalog:
                 # last resort: try a method commonly provided by registries
                 entries = getattr(cat, "get_entries", lambda: None)()
             if entries is None:
-                raise RuntimeError("Unable to access catalog entries from get_catalog()")
+                raise RuntimeError(
+                    "Unable to access catalog entries from get_catalog()"
+                )
 
         # Exact match first
         for e in entries:
@@ -551,7 +566,11 @@ class CloudCatalog:
         # Optional: case-insensitive fallback
         lid = id.lower()
         for e in entries:
-            if isinstance(e, dict) and isinstance(e.get("id"), str) and e["id"].lower() == lid:
+            if (
+                isinstance(e, dict)
+                and isinstance(e.get("id"), str)
+                and e["id"].lower() == lid
+            ):
                 return e
 
         return None
@@ -892,7 +911,9 @@ class CloudCatalog:
         except Exception:
             catalog_obj = getattr(self, "catalog", {})  # fallback
 
-        entries = catalog_obj.get("catalog", []) if isinstance(catalog_obj, dict) else []
+        entries = (
+            catalog_obj.get("catalog", []) if isinstance(catalog_obj, dict) else []
+        )
         out: list[str] = []
 
         for entry in entries:
@@ -936,7 +957,7 @@ class CloudCatalog:
         entry = self.get_entry(id)
         if entry is None:
             raise KeyError(f"Dataset id not found: {id}")
-        
+
         index = entry.get("index")
         start = entry.get("start")
         if not index or not start:
@@ -955,10 +976,9 @@ class CloudCatalog:
         if df.shape[1] < 3:
             raise RuntimeError(f"Index CSV has fewer than 3 columns: {loc}")
 
-        return str(df.iloc[0,2])
+        return str(df.iloc[0, 2])
 
 
-    
 class EntireCatalogSearch:
     """Use to search through all the catalogs by using the global catalog
     to get all the local catalogs."""
