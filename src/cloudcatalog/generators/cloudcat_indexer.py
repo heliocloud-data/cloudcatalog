@@ -95,12 +95,14 @@ def validate_and_fix_timestamp(ts: str, *, field_name: str, dataset_id: str) -> 
 
 
 def extract_year(iso8601: str) -> int:
+    """assumes year is first 4 of ISO time"""
     if not isinstance(iso8601, str) or len(iso8601) < 4:
         raise ValueError(f"Invalid ISO timestamp: {iso8601!r}")
     return int(iso8601[:4])
 
 
 def html_escape(s: str) -> str:
+    """converts ascii special chars to their HTML equivalents"""
     return (
         s.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -133,11 +135,12 @@ def parse_s3_prefix(s3_prefix: str) -> tuple[str, str]:
 
 
 def s3_object_url(bucket: str, key: str) -> str:
-    # Virtual-hosted–style. Change hostname here if you need a regional/GovCloud endpoint.
+    """Virtual-hosted–style. Change hostname here if you need a regional/GovCloud endpoint."""
     return f"https://{bucket}.s3.amazonaws.com/{key.lstrip('/')}"
 
 
 def s3_uri(bucket: str, key: str) -> str:
+    """really simple contructor to convert bucket/key to s3:// form"""
     return f"s3://{bucket}/{key.lstrip('/')}"
 
 
@@ -150,6 +153,7 @@ def base_s3_from_index_prefix(index_prefix: str) -> str:
 
 
 def load_catalog(path: str | os.PathLike[str]) -> list[dict]:
+    """self-explanatory: loads a catalog into a list"""
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
@@ -192,6 +196,7 @@ def render_fetch_template(
 
 
 def render_index_html(entry: dict, *, ext: str = "csv") -> str:
+    """convert dictionary to HTML"""
     id_ = str(entry["id"])
     title = str(entry.get("title", id_))
     index_prefix = str(entry["index"])
@@ -278,7 +283,8 @@ def write_indexes(
     *,
     ext: str = "csv",
 ) -> None:
-    if out_dir == None:
+    """dump a catalog into HTML files in the given directory"""
+    if out_dir is None:
         out_dir = ""
 
     entries = load_catalog(catalog_path)

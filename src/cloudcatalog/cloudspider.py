@@ -31,29 +31,31 @@ Available as CLI versions:
 
 """
 
+import argparse
 from itertools import groupby
 import cloudcatalog
 
 
-def tree(catalog=None, returnvars=False, printme=True):
+def tree(catalog=None, returnvars=False, printme=True, collection=None):
+    """main routine to show all datasets"""
 
-    if catalog == None:
+    if catalog is None:
         catalog = "http://heliocloud.org/catalog/HelioDataRegistry.json"
 
     search = cloudcatalog.EntireCatalogSearch(catalog)
 
-    search.search_by_keywords(["mms2", "brst", "apples"])[:3]
+    # search.search_by_keywords(["mms2", "brst", "apples"])[:3]
     cr = cloudcatalog.CatalogRegistry(catalog)
     # for s3disk in cr.get_registry():
     fullset = []
-    collection = "CDAWeb"  # None
+    spiderset = None
     for s3disk in cr.catalog["registry"]:
         if printme:
             print(f"{s3disk['endpoint']},{s3disk['region']}")
         try:
             fr = cloudcatalog.CloudCatalog(s3disk["endpoint"], cache=False)
             items = fr.get_catalog()["catalog"]
-            if collection != None:
+            if collection is not None:
                 items = [
                     item
                     for item in items
@@ -83,8 +85,8 @@ def tree(catalog=None, returnvars=False, printme=True):
 
 
 def spider(spiderset=None, fr=None, noisy=True, create_manifest=False):
-
-    if spiderset == None or fr == None:
+    """shows files within a dataset"""
+    if spiderset is None or fr is None:
         spiderset, fr = tree(returnvars=True, printme=False)
     if noisy:
         print(f"Fetched {len(spiderset)} entries, now spidering.")
@@ -131,8 +133,7 @@ def spider(spiderset=None, fr=None, noisy=True, create_manifest=False):
 
 
 def spider_main():
-    import argparse
-
+    """standalone call"""
     p = argparse.ArgumentParser(
         prog="cloudcatalog-spider", description="Run the cloudcatalog spider"
     )
@@ -148,7 +149,7 @@ def spider_main():
 
 
 def tree_main(catalog=None):
-    import argparse
+    """standalone call"""
 
     p = argparse.ArgumentParser(
         prog="cloudcatalog-tree", description="Print the cloudcatalog tree"

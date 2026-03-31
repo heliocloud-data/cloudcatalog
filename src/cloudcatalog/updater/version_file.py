@@ -8,6 +8,7 @@ from datetime import datetime
 
 
 def version_file_timestamp(filepath):
+    """version files with a timestamp for uniqueness"""
     if filepath.startswith("s3://"):
         print("Warning, cannot version files in S3 yet.")
         return
@@ -17,6 +18,7 @@ def version_file_timestamp(filepath):
 
 
 def version_file_numeric(filepath):
+    """version files with a simple version number increment"""
     if filepath.startswith("s3://"):
         print("Warning, cannot version files in S3 yet.")
         return

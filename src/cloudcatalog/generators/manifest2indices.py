@@ -1,8 +1,8 @@
-# ***** REQUIRES MANIFEST.csv is in sorted order by first id, then timestamp
+"""***** REQUIRES MANIFEST.csv is in sorted order by first id, then timestamp
 
-# Works but needs better exception handling, run it to see what I mean
+ Works but needs better exception handling, run it to see what I mean
 
-"""Streams a sorted MANIFEST.csv into its indices, also creates a versioned
+Streams a sorted MANIFEST.csv into its indices, also creates a versioned
     'updates.csv' to update the catalog.json with.
     (usually the case when just alphabetically sorting it)
    Also, that only .nc/.cdf files exist
@@ -40,6 +40,7 @@ def set_presets(
     add_prefix="s3://gov-nasa-hdrl-data1/",
     quiet=False,
 ):
+    """shorthand to store many user-specified values into a passable dict"""
     presets = {
         "manifest": manifest,
         "coutfile": coutfile,
@@ -57,16 +58,17 @@ def set_presets(
 
 
 def check_presets(presets):
+    """verifies all presets are set"""
     safety = True
     for mykey in presets.keys():
-        if presets["quiet"] == False:
+        if presets["quiet"] is False:
             print(f"\t{mykey}: {presets[mykey]}")
         if mykey == "manifest" and not os.path.exists(presets[mykey]):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
             safety = False
         if (
             mykey == "metadata_file"
-            and presets[mykey] != None
+            and presets[mykey] is not None
             and not os.path.exists(presets[mykey])
         ):
             print(f"Warning, {mykey}: {presets[mykey]} does not exist")
@@ -75,6 +77,7 @@ def check_presets(presets):
 
 
 def dumpline(fout, cache):
+    """tries to write cache"""
     try:
         fout.write(
             f"{cache['start']},{cache['stop']},{cache['s3key']},{cache['fsize']}\n"
@@ -86,6 +89,7 @@ def dumpline(fout, cache):
 
 
 def parseline(line):
+    """simple name/size parser"""
     line = line.rstrip()
     items = line.split(",")
     fsize = items[-1]
@@ -94,6 +98,7 @@ def parseline(line):
 
 
 def version_file(filepath):
+    """simple version numbering"""
     if filepath.startswith("s3://"):
         print("Warning, cannot version files in S3 yet.")
         return
@@ -118,8 +123,9 @@ def version_file(filepath):
 
 
 def tracker_cleanup(trackerfile):
-    # format is  list of lists ['id','index','start','end']
-    # reconciles multiple entries
+    """format is  list of lists ['id','index','start','end']
+    reconciles multiple entries
+    """
     with open(trackerfile) as fin:
         trackerdata = fin.readlines()
     trackerhash = {}
@@ -151,9 +157,10 @@ def tracker_cleanup(trackerfile):
 
 
 def manifest2indices(presets=None):
-    if presets == None:
+    """main"""
+    if presets is None:
         presets = set_presets()
-    if check_presets(presets) == False:
+    if check_presets(presets) is False:
         print("Error, some presets not valid, exiting.")
         return
 
@@ -164,7 +171,8 @@ def manifest2indices(presets=None):
     version_file(presets["ignorefile"])
     version_file(presets["newidsfile"])
     use_regex = True
-    if presets["metadata_file"] == None:
+    regex_matchme = None
+    if presets["metadata_file"] is None:
         regex_base, regex_pattern = {}, {}
         use_regex = False
         """
@@ -213,7 +221,7 @@ def manifest2indices(presets=None):
             dataid, filename = cxc.extract_matchme(fname, regex_matchme)
         except:
             dataid, filename = cxc.extract_just_dataid(fname)
-        if dataid == None:
+        if dataid is None:
             ferr.write(f"{fname}, dataid not found\n")
             ierrors += 1
             continue
@@ -230,7 +238,7 @@ def manifest2indices(presets=None):
             except:
                 tracker.pop()  # no valid new id yet so remove that last bad field
                 pass
-            if use_regex == False:
+            if use_regex is False:
                 indexbase = cxc.trio_indexdir(fname, add_prefix=presets["add_prefix"])
             else:
                 try:
@@ -256,7 +264,7 @@ def manifest2indices(presets=None):
             if x_regex != regex_pattern[dataid]:
                 regex_pattern[dataid] = x_regex  # update
             ztime = cxc.extract_datetime(fname, x_regex, form="str")
-            if ztime == None:
+            if ztime is None:
                 ferr.write(f"{fname},{x_regex}, date not found\n")
                 ierrors += 1
                 continue
@@ -269,7 +277,7 @@ def manifest2indices(presets=None):
                 fout.write("#start,stop,s3key,filesize\n")
             if DEBUG:
                 print(f"Writing {dataid} {year} index {foutname}")
-            if presets["add_prefix"] != None:
+            if presets["add_prefix"] is not None:
                 fname = presets["add_prefix"] + fname
             cache = {"start": ztime, "s3key": fname, "fsize": fsize}
             curryear = year
@@ -277,13 +285,13 @@ def manifest2indices(presets=None):
             idcount += 1
         else:
             ztime = cxc.extract_datetime(fname, x_regex, form="str")
-            if ztime == None:
+            if ztime is None:
                 ferr.write(f"{fname}, date not found with regex {x_regex}\n")
                 ierrors += 1
                 continue
             cache["stop"] = ztime
             dumpline(fout, cache)
-            if presets["add_prefix"] != None:
+            if presets["add_prefix"] is not None:
                 fname = presets["add_prefix"] + fname
             cache = {"start": ztime, "s3key": fname, "fsize": fsize}
             year = ztime[0:4]
@@ -316,6 +324,7 @@ def manifest2indices(presets=None):
 
 
 def m2i_main(argv=None):
+    """callable routine"""
     import argparse
 
     parser = argparse.ArgumentParser(

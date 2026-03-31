@@ -8,21 +8,22 @@ import os
 from datetime import datetime
 from math import ceil
 from typing import Dict, Optional, Any
+import jsonschema
 
 import boto3
 import dateutil
 import requests
 
-
 class FailedS3Get(Exception):
+    """ pass """
     pass
-
 
 class UnavailableData(Exception):
+    """ pass """
     pass
 
-
 class Validator:
+    """ core class """
     def __init__(self, catalog_url: Optional[str] = None, **client_kwargs) -> None:
         self.combined_catalog = []
         self.global_catalog = None
@@ -161,7 +162,7 @@ class Validator:
             "type": "object",
             "properties": {
                 "Cloudy": {"type": "string"},
-                "endpoint": {"type": "string", "pattern": "s3://\S+/"},
+                "endpoint": {"type": "string", "pattern": r"s3://\S+/"},
                 "name": {"type": "string"},
                 "region": {"type": "string"},
                 "egressPolicy": {"type": "string"},
@@ -176,20 +177,20 @@ class Validator:
                             "id": {"type": "string", "pattern": "^[a-zA-Z0-9-_]+$"},
                             "loc": {
                                 "type": "string",
-                                "pattern": "s3://\S+/.*",
+                                "pattern": r"s3://\S+/.*",
                             },  # support https?
                             "title": {"type": "string"},
                             "start": {
                                 "type": "string",
-                                "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
+                                "pattern": r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
                             },
                             "stop": {
                                 "type": "string",
-                                "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
+                                "pattern": r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
                             },
                             "modification": {
                                 "type": "string",
-                                "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
+                                "pattern": r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
                             },
                             "indexFormat": {
                                 "type": "string",
@@ -200,7 +201,7 @@ class Validator:
                             "resource": {"type": "string"},
                             "creation": {
                                 "type": "string",
-                                "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
+                                "pattern": r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
                             },
                             "citation": {"type": "string"},
                             "contact": {"type": "string"},
@@ -271,14 +272,14 @@ class Validator:
                 "CloudCatalog": {"type": "string"},
                 "modification": {
                     "type": "string",
-                    "pattern": "\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
+                    "pattern": r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z",
                 },
                 "registry": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "endpoint": {"type": "string", "pattern": "s3://\S+/"},
+                            "endpoint": {"type": "string", "pattern": r"s3://\S+/"},
                             "name": {"type": "string"},
                             "provider": {"type": "string"},
                             "region": {"type": "string"},
@@ -328,6 +329,7 @@ class Validator:
                 year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
 
                 def ceil_year(date):
+                    """ returns fractional years """
                     return ceil(
                         date.year
                         + (date - datetime(date.year, 1, 1)).total_seconds()
@@ -388,12 +390,14 @@ class Validator:
         success = self.validate_global_catalog_schema()
         success = self.validate_all_local_catalog_schemas() and success
         success = self.validate_global_uniqueness() and success
-        sucesss = self.validate_local_uniqueness() and success
+        success = self.validate_local_uniqueness() and success
         success = self.validate_all_local_catalog_file_registries() and success
         return success
 
     def get_global_catalog(self) -> Dict[str, Any]:
+        """ returns self var """
         return self.global_catalog
 
     def get_local_catalogs(self) -> Dict[str, Any]:
+        """ returns self var """
         return self.combined_catalog

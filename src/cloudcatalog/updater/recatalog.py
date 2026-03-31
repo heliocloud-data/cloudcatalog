@@ -33,14 +33,13 @@ Potential problem/edge case:
 """
 
 import json
-import os
-import shutil
 import re
-import pandas
+import sys
 from smart_open import open
 
 
 def get_inputs():
+    """ text-based CLI user query """
     dryrun = input("Is this a test dryrun, or a production run? (test/prod): ")
     if dryrun.lower()[0] == "p":
         dryrun = False
@@ -53,8 +52,9 @@ def get_inputs():
     try:
         catalog = fetch_catalog(catname)
     except:
-        print(f"Error, unable to fetch a valid catalog at {catalog}, exiting")
-
+        print(f"Error, unable to fetch a valid catalog at {catname}, exiting")
+        return None
+    
     yn = input("Is the data going to the same bucket? y/n: ")
     if yn.lower() == "n":
         newbucket = input(
@@ -94,25 +94,27 @@ def get_inputs():
     )
     if yn.lower() != "y":
         print("Exiting, feel free to start again.")
-        exit()
+        sys.exit()
     imatch = update_catalog(inputs, catalog, force_dryrun=True)
     yn = input(f"There are {imatch} entries that will be updated, continue? (y/n): ")
     if yn.lower() != "y":
         print("Exiting, feel free to start again.")
-        exit()
+        sys.exit()
 
     return inputs
 
 
 def fetch_catalog(catname):
+    """ loads JSON catalog """
     with open(catname) as fin:
         catalog = json.load(fin)
     return catalog
 
 
 def update_catalog(inputs, catalog, force_dryrun=None):
+    """ actual updater, careful as it overwrites """
     imatch = 0
-    if force_dryrun == None:
+    if force_dryrun is None:
         dryrun = inputs["dryrun"]
     else:
         dryrun = True
@@ -135,6 +137,7 @@ def update_catalog(inputs, catalog, force_dryrun=None):
 
 
 def update_indices(inputs, catalog):
+    """ also updates irrevocably """
     numfiles = 0
     numsuccesses = 0
     for jj in catalog["catalog"]:
@@ -150,7 +153,7 @@ def update_indices(inputs, catalog):
                 findex = indexbase + fcsv
                 status = update_index(findex, inputs)
                 numfiles += 1
-                if status == True:
+                if status is True:
                     numsuccesses += 1
     if numfiles != numsuccesses:
         print(
@@ -163,15 +166,14 @@ def update_indices(inputs, catalog):
 
 
 def backup_index(findex):
-    # using 'open' instead of os/shutils because of need for S3 writes
+    """ using 'open' instead of os/shutils because of need for S3 writes """
     fbck = findex + ".bck"
     with open(findex, "r") as fin:
         with open(fbck, "w") as fout:
             fout.writelines(fin.readlines())
-    return
-
 
 def update_index(findex, inputs):
+    """ also updates irrevocably """
     if not inputs["dryrun"]:
         backup_index(findex)
     try:
@@ -196,14 +198,18 @@ def update_index(findex, inputs):
 
 
 # os.makedirs(destdir,exist_ok=True)
+def call_main():
+    """ wrapper for all the above """
+    inputs = get_inputs()
+    mycatalog = fetch_catalog(inputs["catname"])
+    if inputs["mode"] == "A":
+        status = update_indices(inputs, mycatalog)
+        imatch = update_catalog(inputs, mycatalog)
+    else:
+        imatch = update_catalog(inputs, mycatalog)
+        status = update_indices(inputs, mycatalog)
 
-inputs = get_inputs()
-catalog = fetch_catalog(inputs["catname"])
-if inputs["mode"] == "A":
-    status = update_indices(inputs, catalog)
-    imatch = update_catalog(inputs, catalog)
-else:
-    imatch = update_catalog(inputs, catalog)
-    status = update_indices(inputs, catalog)
+    print(f"Completed, {imatch} entries updated",status)
 
-print(f"Completed, {imatch} entries updated")
+if __name__ == "__main__":
+    call_main()
