@@ -169,6 +169,7 @@ def fetch_S3(
     response = s3_client.get_object(Bucket=mybucket, Key=mykey)
     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     # print("  Success S3 unsigned",status)
+    catalog = None
     if "Body" in response and status == 200:
         catalog_bytes = response["Body"].read()
         if rawbytes:

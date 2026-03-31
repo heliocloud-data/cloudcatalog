@@ -6,6 +6,7 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
+from importlib.metadata import version, PackageNotFoundError
 
 # -- Project information -----------------------------------------------------
 
@@ -13,11 +14,11 @@ project = "cloudcatalog"
 copyright = "2023, Johns Hopkins University Applied Physics Laboratory LLC"
 author = "JHUAPL"
 
-# The full version, including alpha/beta/rc tags
-from cloudcatalog import __version__
-
-release = __version__
-
+try:
+    release = version("cloudcatalog")
+except PackageNotFoundError:
+    release = "unknown"
+version = release
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be

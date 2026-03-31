@@ -5,9 +5,7 @@ we only extract filenames of '.cdf' and '.nc' to avoid recursive messiness!
 
 import re
 import time
-import catalog_updater as cu
-import spdf_to_db as spdf
-import reorder_csv_columns as rcc
+from . import reorder_csv_columns as rcc
 
 
 def splitter(fname="MANIFEST.csv", justmms="justmms.csv", notmms="notmms.csv"):
@@ -45,25 +43,13 @@ def call_splitter():
     print(f"Done re-order, took {time.time()-now} seconds")
 
     now = time.time()
-    print("Doing the full ingest cycle for both, this takes time.")
-    spdf.ingest_s3_inventory(
-        db_name="justmms.db", infile=justmms_r, staging_prefix="s3/"
-    )
-    spdf.ingest_s3_inventory(db_name="notmms.db", infile=notmms_r, staging_prefix="s3/")
-    print(f"Done ingest and indices, took {time.time()-now} seconds")
 
-    now = time.time()
     print("Updating catalog.json (quick)")
     catnot = "catalog_updates2.csv"
     catmms = "catalog_updates2_v1.csv"
     jfile = "catalog_jul10.json"
     ofile = "catalog_interim.json"
     ffile = "catalog_final.json"
-    success = cu.update_catalog_json(
-        jfile, catnot, ofile, collections=["CDAWeb", "MMS"]
-    )
-    success = cu.update_catalog_json(ofile, catmms, ffile, collections=["CDAWeb"])
-    print(f"Done catalog update, took {time.time()-now} seconds", success)
 
     print("See catalog_final.json, all indices (JUSTMMS and NOTMMS) are in s3/")
     print(f"Total elapsed time: {time.time()-start} seconds")

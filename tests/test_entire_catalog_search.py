@@ -1,17 +1,18 @@
-""" Makes a mock catalog, does test search to test core package """
+"""Makes a mock catalog, does test search to test core package"""
 
 import pytest
 from cloudcatalog import EntireCatalogSearch
 
+
 @pytest.fixture
 def search():
-    """ won't actually use this catalog, but need a working json file to just do tests """
+    """won't actually use this catalog, but need a working json file to just do tests"""
     return EntireCatalogSearch()
 
 
-#@pytest.fixture
+# @pytest.fixture
 def mock_catalog():
-    """ generates valid JSON for a dummy catalog """
+    """generates valid JSON for a dummy catalog"""
     return {
         "catalog": [
             {"id": "file1", "index": "s3://helio-public/MMS", "title": "File 1"},
@@ -24,7 +25,7 @@ def mock_catalog():
 
 
 def test_search_by_id(search, temp_mock_catalog=mock_catalog()):
-    """ Test searching for an ID that exists in one catalog """
+    """Test searching for an ID that exists in one catalog"""
     search.combined_catalog = [temp_mock_catalog]
     results = search.search_by_id("file1")
     assert len(results) == 1
@@ -44,7 +45,7 @@ def test_search_by_id(search, temp_mock_catalog=mock_catalog()):
 
 
 def test_search_by_title(search, temp_mock_catalog=mock_catalog()):
-    """ Test searching for a substring that exists in one catalog """
+    """Test searching for a substring that exists in one catalog"""
     search.combined_catalog = [temp_mock_catalog]
     results = search.search_by_title("file")
     assert len(results) == 5
@@ -76,7 +77,7 @@ def test_search_by_title(search, temp_mock_catalog=mock_catalog()):
 
 
 def test_search_by_keywords(search, temp_mock_catalog=mock_catalog()):
-    """ Test searching for keywords that exist in one catalog """
+    """Test searching for keywords that exist in one catalog"""
     search.combined_catalog = [temp_mock_catalog]
     results = search.search_by_keywords(["file", "s3://helio-public/MMS"])
     assert len(results) == 5

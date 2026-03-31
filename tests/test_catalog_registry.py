@@ -1,11 +1,12 @@
-""" test of the catalog-of-catalogs """
+"""test of the catalog-of-catalogs"""
 
 import pytest
 from cloudcatalog import CatalogRegistry
 
+
 @pytest.fixture
 def catalog_registry():
-    """ Actually try to load a real catalog, but then overwrites contents just in case of changes """
+    """Actually try to load a real catalog, but then overwrites contents just in case of changes"""
     cr = CatalogRegistry()
     cr.catalog = {
         "CloudCatalog": "1.0",
@@ -27,14 +28,14 @@ def catalog_registry():
 
 
 def test_get_catalog(catalog_registry):
-    """ test atomic """
+    """test atomic"""
     catalog = catalog_registry.get_catalog()
     assert isinstance(catalog, dict)
     assert len(catalog) > 0
 
 
 def test_get_registry(catalog_registry):
-    """ test atomic """
+    """test atomic"""
     registry = catalog_registry.get_registry()
     assert isinstance(registry, list)
     assert len(registry) > 0
@@ -43,7 +44,7 @@ def test_get_registry(catalog_registry):
 
 
 def test_get_entries_name_region(catalog_registry):
-    """ test atomic """
+    """test atomic"""
     entries = catalog_registry.get_entries_name_region()
     assert isinstance(entries, list)
     assert len(entries) > 0
@@ -61,7 +62,7 @@ def test_get_entries_name_region(catalog_registry):
     ],
 )
 def test_get_endpoint(catalog_registry, name, region_prefix, force_first):
-    """ test atomic """
+    """test atomic"""
     endpoint = catalog_registry.get_endpoint(name, region_prefix, force_first)
     assert isinstance(endpoint, str)
     assert len(endpoint) > 0

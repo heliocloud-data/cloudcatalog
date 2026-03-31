@@ -22,10 +22,13 @@ tbd: auto-gen of test script and run tests
      make an 'addcollection' tool
 
 Potential problem/edge case:
- right now  spdf/cdaweb/data/mms is correct but spdf/cdaweb/* is not (including an 'mms' directory)
-      so we'd need to first rename/move spdf/cdaweb/data/mms away (which we know)
-      but the cdaweb migration means changing '/spdf/cdaweb/' to '/spdf/cdaweb/data/' but this
-      would make existing /spdf/cdaweb/data/mms become /spdf/cdaweb/data/data/mms, hmm...
+ right now  spdf/cdaweb/data/mms is correct but spdf/cdaweb/* is not
+ (including an 'mms' directory)
+ so we'd need to first rename/move spdf/cdaweb/data/mms away
+ (which we know) but the cdaweb migration means
+ changing '/spdf/cdaweb/' to '/spdf/cdaweb/data/' but this
+ would make existing /spdf/cdaweb/data/mms become
+ /spdf/cdaweb/data/data/mms, hmm...
       Need to add 'regex to exclude'
 
 
@@ -39,7 +42,7 @@ from smart_open import open
 
 
 def get_inputs():
-    """ text-based CLI user query """
+    """text-based CLI user query"""
     dryrun = input("Is this a test dryrun, or a production run? (test/prod): ")
     if dryrun.lower()[0] == "p":
         dryrun = False
@@ -54,7 +57,7 @@ def get_inputs():
     except:
         print(f"Error, unable to fetch a valid catalog at {catname}, exiting")
         return None
-    
+
     yn = input("Is the data going to the same bucket? y/n: ")
     if yn.lower() == "n":
         newbucket = input(
@@ -68,14 +71,19 @@ def get_inputs():
     )
     newloc = input("Enter new location string, e.g. '/contrib/jhuapl/euvml/': ")
     exclude = input(
-        "Any words/strings to exclude i.e. not change or overwrite? (e.g. for CDAWeb move, exclude 'mms') Enter string or leave blank if none: "
+        "Any words/strings to exclude i.e. not change or overwrite? "
+        "(e.g. for CDAWeb move, exclude 'mms') "
+        "Enter string or leave blank if none: "
     )
     if len(exclude) < 1:
         exclude = None
     mode = None
     while mode not in ["A", "B"]:
         mode = input(
-            "Enter mode.\nA = data still in old loc so update indices and catalog.json in preparation for move,\nB = data was already moved to new loc but not re-indexed so both catalog.json and indices need to be updated.\n(A/B): "
+            "Enter mode.\nA = data still in old loc so update indices and "
+            "catalog.json in preparation for move,\nB = data was already "
+            "moved to new loc but not re-indexed so both catalog.json and "
+            "indices need to be updated.\n(A/B): "
         )
         mode = mode.upper()
     inputs = {
@@ -90,13 +98,14 @@ def get_inputs():
     }
 
     yn = input(
-        f"Is this correct? Mode {mode}, updating indices to change {oldloc} to {newloc}, dryrun={dryrun}  (y/n): "
+        f"Is this correct? Mode {mode}, updating indices to change {oldloc} "
+        "to {newloc}, dryrun={dryrun}  (y/n): "
     )
     if yn.lower() != "y":
         print("Exiting, feel free to start again.")
         sys.exit()
     imatch = update_catalog(inputs, catalog, force_dryrun=True)
-    yn = input(f"There are {imatch} entries that will be updated, continue? (y/n): ")
+    yn = input(f"There are {imatch} entries that will be updated, " "continue? (y/n): ")
     if yn.lower() != "y":
         print("Exiting, feel free to start again.")
         sys.exit()
@@ -105,14 +114,14 @@ def get_inputs():
 
 
 def fetch_catalog(catname):
-    """ loads JSON catalog """
+    """loads JSON catalog"""
     with open(catname) as fin:
         catalog = json.load(fin)
     return catalog
 
 
 def update_catalog(inputs, catalog, force_dryrun=None):
-    """ actual updater, careful as it overwrites """
+    """actual updater, careful as it overwrites"""
     imatch = 0
     if force_dryrun is None:
         dryrun = inputs["dryrun"]
@@ -137,7 +146,7 @@ def update_catalog(inputs, catalog, force_dryrun=None):
 
 
 def update_indices(inputs, catalog):
-    """ also updates irrevocably """
+    """also updates irrevocably"""
     numfiles = 0
     numsuccesses = 0
     for jj in catalog["catalog"]:
@@ -157,7 +166,8 @@ def update_indices(inputs, catalog):
                     numsuccesses += 1
     if numfiles != numsuccesses:
         print(
-            f"Warning, only processed {numsuccesses} indices out of {numfiles} matches. Continuing"
+            f"Warning, only processed {numsuccesses} indices out of "
+            f"{numfiles} matches. Continuing"
         )
         status = False
     else:
@@ -166,14 +176,15 @@ def update_indices(inputs, catalog):
 
 
 def backup_index(findex):
-    """ using 'open' instead of os/shutils because of need for S3 writes """
+    """using 'open' instead of os/shutils because of need for S3 writes"""
     fbck = findex + ".bck"
     with open(findex, "r") as fin:
         with open(fbck, "w") as fout:
             fout.writelines(fin.readlines())
 
+
 def update_index(findex, inputs):
-    """ also updates irrevocably """
+    """also updates irrevocably"""
     if not inputs["dryrun"]:
         backup_index(findex)
     try:
@@ -199,7 +210,7 @@ def update_index(findex, inputs):
 
 # os.makedirs(destdir,exist_ok=True)
 def call_main():
-    """ wrapper for all the above """
+    """wrapper for all the above"""
     inputs = get_inputs()
     mycatalog = fetch_catalog(inputs["catname"])
     if inputs["mode"] == "A":
@@ -209,7 +220,8 @@ def call_main():
         imatch = update_catalog(inputs, mycatalog)
         status = update_indices(inputs, mycatalog)
 
-    print(f"Completed, {imatch} entries updated",status)
+    print(f"Completed, {imatch} entries updated", status)
+
 
 if __name__ == "__main__":
     call_main()
