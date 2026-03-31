@@ -1,11 +1,12 @@
-""" Tests base CloudCatalog with an MMS query """
+"""Tests base CloudCatalog with an MMS query"""
 
 import sys
 import pytest
 import cloudcatalog
 
+
 def test_minimms(dataset="MMS1_ASPOC_SRVY_L2", printme=False):
-    """ core test """
+    """core test"""
     # import cc as cloudcatalog
     fr = cloudcatalog.CloudCatalog("s3://gov-nasa-hdrl-data1", cache=False)
     # dataset = "MMS1_MEC_SRVY_L2_EPHT89D"

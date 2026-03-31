@@ -1,4 +1,4 @@
-""" Tests our catalog updater using files in test dir 'catdata' """
+"""Tests our catalog updater using files in test dir 'catdata'"""
 
 from pathlib import Path
 import shutil
@@ -9,7 +9,7 @@ from cloudcatalog.updater import update_catalog_from_csv
 
 
 def test_catalog_updater():
-    """ define file names to run on then copies over test data to run """
+    """define file names to run on then copies over test data to run"""
     jfile = str(Path(__file__).parent / "catdata/catalog.json")
     ofile = str(Path(__file__).parent / "catdata/catalog_stub.json")
     cfile = str(Path(__file__).parent / "catdata/cat.csv")

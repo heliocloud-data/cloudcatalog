@@ -1,0 +1,124 @@
+{
+    "Cloudy": "1.1",
+    "endpoint": "s3://example-bucket/",
+    "name": "Expanded Test Dataset Collection",
+    "contact": "Jane Doe, jane.doe@example.com",
+    "description": "Larger example JSON with multiple datasets",
+    "citation": "pending",
+    "catalog": [
+        {
+            "id": "changing_telemetry_data",
+            "index": "./cdaweb-test/isis/top_sounder/ionogram_cdf/isis1/ODG_14N_359E/",
+            "title": "Telemetry Records",
+            "start": "2069-05-16T11:41:27Z",
+            "stop": "2069-12-30T09:15:48Z",
+            "resource": "https://example.org/resources/telemetry_data",
+            "contact": "Chris Lee",
+            "about": "https://example.org/about/telemetry_data",
+            "collections": [
+                "SatelliteA",
+                "SatelliteB"
+            ],
+            "modification": "2025-03-24T16:33:11Z"
+        },
+        {
+            "id": "new ground_station_data",
+            "index": "s3://example-bucket/ground/data/",
+            "title": "Ground Station Records",
+            "start": "2016-03-01T00:00:00.000Z",
+            "stop": "2020-07-01T00:00:00.000Z",
+            "resource": "https://example.org/resources/ground_station_data",
+            "contact": "Tom Green",
+            "about": "https://example.org/about/ground_station_data"
+        },
+        {
+            "id": "new_calibration_data",
+            "index": "s3://example-bucket/calibration/data/",
+            "title": "Calibration Files",
+            "start": "2012-05-01T00:00:00.000Z",
+            "stop": "2018-11-30T23:59:59.000Z",
+            "resource": "https://example.org/resources/calibration_data",
+            "contact": "Ravi Patel",
+            "about": "https://example.org/about/calibration_data",
+            "collections": [
+                "SatelliteB"
+            ]
+        },
+        {
+            "id": "new_csv_item",
+            "title": "new_csv_item",
+            "indextype": "csv",
+            "start": "2089-05-16T11:41:27Z",
+            "stop": "2089-12-30T09:15:48Z",
+            "index": "./cdaweb-test/whatever/test/",
+            "modification": "2025-03-24T16:33:11Z"
+        },
+        {
+            "id": "new_orbit_data",
+            "index": "s3://example-bucket/new/data/",
+            "title": "Newly Added Dataset",
+            "start": "2022-01-01T00:00:00.000Z",
+            "stop": "2025-01-01T00:00:00.000Z",
+            "resource": "https://example.org/resources/new_data",
+            "contact": "Alex Kim",
+            "about": "https://example.org/about/new_data",
+            "collections": [
+                "SatelliteA"
+            ]
+        },
+        {
+            "id": "redundant_archive_data",
+            "index": "./cdaweb-test/whatever/test/",
+            "title": "Archived Dataset",
+            "start": "1998-05-16T11:41:27Z",
+            "stop": "1998-12-30T09:15:48Z",
+            "resource": "https://example.org/resources/archive_data",
+            "contact": "Mary Johnson",
+            "about": "https://example.org/about/archive_data",
+            "collections": [
+                "SatelliteA"
+            ],
+            "modification": "2025-03-24T16:33:11Z"
+        },
+        {
+            "id": "unchanged_sample_data",
+            "index": "s3://example-bucket/sample/data/",
+            "title": "Sample Dataset for Testing",
+            "start": "1998-01-01T00:00:00.000Z",
+            "stop": "1999-01-02T23:59:59.000Z",
+            "resource": "https://example.org/resources/sample_data",
+            "contact": "John Smith",
+            "about": "https://example.org/about/sample_data",
+            "collections": [
+                "SatelliteA"
+            ]
+        },
+        {
+            "id": "unchanged_science_data",
+            "index": "s3://example-bucket/science/data/",
+            "title": "Science Observations",
+            "start": "1998-04-01T00:00:00.000Z",
+            "stop": "1999-05-02T00:00:00.000Z",
+            "resource": "https://example.org/resources/science_data",
+            "contact": "Dana White",
+            "about": "https://example.org/about/science_data",
+            "collections": [
+                "SatelliteB"
+            ]
+        },
+        {
+            "id": "unchanging_engineering_data",
+            "index": "s3://example-bucket/engineering/data/",
+            "title": "Engineering Logs",
+            "start": "1998-06-01T00:00:00.000Z",
+            "stop": "1999-07-02T23:59:59.000Z",
+            "resource": "https://example.org/resources/engineering_data",
+            "contact": "Sarah Kim",
+            "about": "https://example.org/about/engineering_data"
+        }
+    ],
+    "status": {
+        "code": 1200,
+        "message": "OK request successful"
+    }
+}

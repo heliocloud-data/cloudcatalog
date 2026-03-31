@@ -14,16 +14,22 @@ import boto3
 import dateutil
 import requests
 
+
 class FailedS3Get(Exception):
-    """ pass """
+    """pass"""
+
     pass
+
 
 class UnavailableData(Exception):
-    """ pass """
+    """pass"""
+
     pass
 
+
 class Validator:
-    """ core class """
+    """core class"""
+
     def __init__(self, catalog_url: Optional[str] = None, **client_kwargs) -> None:
         self.combined_catalog = []
         self.global_catalog = None
@@ -35,7 +41,8 @@ class Validator:
         Fetches the global catalog and combines it with local catalogs.
 
         Parameters:
-            catalog_url: URL of the global catalog. If not provided, it is read from the environment
+            catalog_url: URL of the global catalog. If not provided,
+                         it is read from the environment
              variable ROOT_CATALOG_REGISTRY_URL.
         """
         # Load the global catalog
@@ -43,14 +50,15 @@ class Validator:
             catalog_url = os.getenv("ROOT_CATALOG_REGISTRY_URL")
             if catalog_url is None:
                 raise ValueError(
-                    "No environment variable ROOT_CATALOG_REGISTRY_URL nor was an explicit "
+                    "No environment variable ROOT_CATALOG_REGISTRY_URL "
+                    "nor was an explicit "
                     "catalog_url passed in."
                 )
 
         response = requests.get(catalog_url)
         if response.status_code != 200:
             raise requests.ConnectionError(
-                f"Get Request for Global Catalog Failed. Catalog url: {catalog_url}"
+                f"Get Request for Global Catalog Failed. Catalog url: " "{catalog_url}"
             )
 
         self.global_catalog = response.json()
@@ -72,21 +80,23 @@ class Validator:
                 status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                 if "Body" not in response and status != 200:
                     raise FailedS3Get(
-                        f"Failed to Get Catalog from Bucket. Status: {status}. Response: {response}"
+                        f"Failed to Get Catalog from Bucket. Status: {status}."
+                        f"Response: {response}"
                     )
 
                 catalog_bytes = response["Body"].read()
                 local_catalog = json.loads(catalog_bytes)
 
                 if local_catalog["status"] == "1400/temporarily unavailable":
-                    raise UnavailableData(self.catalog["status"])
+                    raise UnavailableData(self.global_catalog["status"])
 
                 self.combined_catalog.append(local_catalog)
 
             except Exception as e:
                 # Key Error if missing name or region (invalid catalog)
                 logging.warning(
-                    f"Failed to fetch local catalog for entry {entry['name']} ({entry['region']}): {e}\n"
+                    f"Failed to fetch local catalog for entry "
+                    f"{entry['name']} ({entry['region']}): {e}\n"
                 )
                 failed_entries.append((entry["name"], entry["region"]))
 
@@ -99,7 +109,8 @@ class Validator:
 
     def validate_global_uniqueness(self) -> None:
         """
-        Validates the uniqueness of name and region combinations the the global catalog entries.
+        Validates the uniqueness of name and region combinations the
+        global catalog entries.
         """
         success = True
         unique_identifiers = set()
@@ -142,10 +153,11 @@ class Validator:
                     unique_identifiers[identifier] = catalog["name"]
 
         if dups == 0:
-            logging.info("Local catalog IDs are unique across all catalogs. Passed.")
+            logging.info("Local catalog IDs are unique across all catalogs. " "Passed.")
         else:
             logging.warning(
-                f"Local catalog IDs are not unique across all catalogs. Failed. Duplicates: {dups}"
+                f"Local catalog IDs are not unique across all catalogs. "
+                "Failed. Duplicates: {dups}"
             )
             success = False
         return success
@@ -257,7 +269,9 @@ class Validator:
         """
         success = True
         for index, local_catalog in enumerate(self.combined_catalog):
-            logging.info(f"Validating local catalog {index} {local_catalog['name']}:")
+            logging.info(
+                f"Validating local catalog " f"{index} {local_catalog['name']}:"
+            )
             success = success and self.validate_local_catalog_schema(local_catalog)
         return success
 
@@ -312,7 +326,8 @@ class Validator:
         Validates local file registries in the provided local catalog.
 
         Parameters:
-            local_catalog: The local catalog containing file registries to be validated.
+            local_catalog: The local catalog containing file registries
+            to be validated.
         """
         success = True
         failed_reg_files = 0
@@ -329,7 +344,7 @@ class Validator:
                 year_start_date = dateutil.parser.parse(catalog_start_date[:-1]).year
 
                 def ceil_year(date):
-                    """ returns fractional years """
+                    """returns fractional years"""
                     return ceil(
                         date.year
                         + (date - datetime(date.year, 1, 1)).total_seconds()
@@ -352,30 +367,35 @@ class Validator:
                     status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
                     if "Body" not in response or status != 200:
                         raise FailedS3Get(
-                            f"Failed to get a cloud catalog object. Status: {status}. Response: {response}"
+                            f"Failed to get a cloud catalog object. "
+                            f"Status: {status}. Response: {response}"
                         )
             except Exception as e:
                 failed_reg_files += 1
                 logging.warning(
-                    f"Failed to fetch local cloud catalog files for entry {entry['id']}: {e}\n"
+                    f"Failed to fetch local cloud catalog files "
+                    "for entry {entry['id']}: {e}\n"
                 )
         if failed_reg_files == 0:
             logging.info("Loading Local Catalog File Registries Passed.")
         else:
             logging.error(
-                f"Loading Local Catalog File Registries Failed. Failures: {failed_reg_files}"
+                f"Loading Local Catalog File Registries Failed. "
+                "Failures: {failed_reg_files}"
             )
             success = False
         return success
 
     def validate_all_local_catalog_file_registries(self) -> None:
         """
-        Validates the file registries for all local catalogs in the combined catalog.
+        Validates the file registries for all local catalogs in the
+        combined catalog.
         """
         success = True
         for index, local_catalog in enumerate(self.combined_catalog):
             logging.info(
-                f"Validating local catalog file registries {index} {local_catalog['name']}:"
+                f"Validating local catalog file registries "
+                f"{index} {local_catalog['name']}:"
             )
             success = success and self.validate_local_catalog_file_registries(
                 local_catalog
@@ -385,7 +405,8 @@ class Validator:
     def validate(self) -> None:
         """
         Performs a complete validation of the catalogs.
-        Validates the global catalog schema, local catalog schemas, uniqueness of entries, and local catalog file registries.
+        Validates the global catalog schema, local catalog schemas,
+        uniqueness of entries, and local catalog file registries.
         """
         success = self.validate_global_catalog_schema()
         success = self.validate_all_local_catalog_schemas() and success
@@ -395,9 +416,9 @@ class Validator:
         return success
 
     def get_global_catalog(self) -> Dict[str, Any]:
-        """ returns self var """
+        """returns self var"""
         return self.global_catalog
 
     def get_local_catalogs(self) -> Dict[str, Any]:
-        """ returns self var """
+        """returns self var"""
         return self.combined_catalog

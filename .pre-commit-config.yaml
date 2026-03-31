@@ -1,5 +1,25 @@
 repos:
-  - repo: https://github.com/ambv/black
-    rev: 24.8.0
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
     hooks:
-    - id: black
+      - id: black
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: python -m pylint
+        language: system
+        types: [python]
+        args:
+          - --recursive=y
+          - --disable=all
+          - --enable=E
+
+  - repo: local
+    hooks:
+      - id: pytest with coverage
+        name: pytest
+        entry: pytest --cov=. --cov-report=term-missing
+        language: system
+        pass_filenames: false
