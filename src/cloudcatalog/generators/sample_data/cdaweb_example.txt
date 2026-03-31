@@ -1,0 +1,179 @@
+Sample run for CDAWeb assuming an S3 manifest 'manifest.csv'
+
+filtersort_nc_cdf.sh manifest.csv
+python manifest2indices.py --manifest manifest_sorted.csv
+   (generates s3:/ dir of indices + updates.csv)
+cloudcatalog.update-csv json-path='catalog.json' csv_path='updates.csv'
+
+
+
+
+
+
+This defaults to the CDAWeb spec of
+ s3://gov-nasa-hdrl-data1/spdf/cdaweb/data/[mission]/indices/[year]_[mission].csv
+
+It assumes inputs of e.g.
+  spdf/cdaweb/data/ace/cris/level_2_cdaweb/cris_h2/2003/ac_h2_cris_20030206_v06.cdf,158701
+PLUS an XML file 'all.xml' with the regex spec.
+
+To set the input file, use --manifest, e.g.
+   --manifest='manifest_sorted.csv'
+
+For a different bucket or destination directory, use e.g.
+   add-prefix='s3://gov-nasa-hdrl/data1/'
+or
+   add-prefix=None
+
+To strip a given prefix, use e.g.
+   strip-me='pub/data/'
+or
+   strip-me=None
+
+For a different bucket or destination directory, use e.g.
+   ensure-prefix='spdf/cdaweb/data'
+or
+   ensure-prefix=None
+
+Output defaults to 'updates.csv', change with e.g.
+   --coutfile='updates.csv'
+
+Errors appear in 'errors.lst', change with e.g.
+   --errorsfile='errors.lst'
+
+The regex XML file location defaults to '.' but can be set, e.g.
+   --xml-path='.'
+
+
+
+
+For future delta updates, I'm altering the workflow Rita used, a lot, to work better with our catalog/manifest system.  Here's my thinking of the process you'll run.  (Step 1) Script 1 fetches CDAWeb's current filelisting using their approved script ('spdf_curr'), generates our current indexed holdings using our existing cloudcatalog tree/spider functions ('manifest_spider.txt'), then diffs the 2 and generate a list of files we need, in a format you specify that lets you run your S3 fetching scripts to move them into staging.  (Step 2) you execute the multi-TB bulk copy from https://spdf.gsfc.nasa.gov/ to S3://somewhere.  (Step 3) after you've copied them over from S3://somewhere and put them into ODR, you re-generate a current 'MANIFEST.csv'.  (Step 4) You run Script 2 which takes MANIFEST.csv and makes new cloudcatalog indices plus the updated toplevel 'catalog.json'  s3://scratch-data-ops/ (Step 5) You copy the new indices/catalog stuff into ODR.
+
+Advantage of this is we're always working off actual holdings, not some external DB that might drift.  It's a lot of steps but for data copies this seems safest, it's 'CDAWeb files to staging; staging files to ODR; regenerate MANIFEST.csv; regenerate catalogs from manifest in scratch; copy from scratch to ODR'.
+
+
+yup, it sounds right but I would add the addition of a (or two?) new buckets to isolate the process from scratch and staging to avoid interfering with other data operations
+this allows us to eventually automate the whole stack without much issue
+so im suggesting a cdaweb-staging bucket and a cdaweb-manifests bucket to take the place of heliodata-staging and scratch-dataops respectively
+also the new indices should be done in a couple minutes, copying the manifest over as soon as that is taken care of
+
+Time checks btw are around a half hour for Step 1, probably hours for Step 2 (fetching TBs from CDAWeb's server), unknown lag for Step 3 (a few hours to copy then overnight for typical AWS manifest generation delay?), maybe 2 minutes for Step 4, maybe 5 minutes for Step 5.
+CDAWeb suggests we do updates every 2-3 days, so maybe a Sun fetch (& thus Monday update) then a Wed fetch (& thus Thurs update) for twice/weekly?
+
+
+Can we try a retransmit on pulls?    Alt is to keep an error log, it's easy to de-index files quickly if they didn't transfer.  So Step 2.5) Based on error log, update new indices before that transfer?
+3:02
+I'd rather add an error-validation-update step than always be waiting on an AWS manifest.csv to become current.
+
+
+Omar Shalaby
+  3:04 PM
+yeah we can monitor for errors and prevent them from being marked as "done"
+3:05
+i just copied the indices and the catalog.json over now, can you please confirm things are in-place?
+:stopwatch:
+1
+
+
+
+Sandy Antunes
+  3:08 PM
+Step 1: my script fetches CDAWeb listing, diffs against our cloudcatalog, generates a 'copy these files' script for you plus new indices in cdaweb-manifests.  Step 2: you S3 batch the 'copy these files' script to cdaweb-staging then move them to ODR, generating an error.log for any drops. Step 3: The error log is run through a catalog updater script to adjust the new indices. Step 4: you copy the indices & catalog json over to ODR, run validator as sanity check, done.
+:100:
+1
+:white_check_mark:
+1
+
+
+
+Omar Shalaby
+  3:14 PM
+yes with a very slight tweak that the S3 batch is only between staging and ODR, not from cdaweb to staging
+that is going to be the current curl approach and thats where the error validation makes the most sense as this is the most vulnerable step to drops
+batch operations automatically generate a job report and file copy success/fail rate so that's good for the staging to odr push particularly because: any file >5gb will automatically fail an S3 Batch copy operation
+
+
+Sandy Antunes
+  3:20 PM
+Okay, so do you want a giant curl script for the copy from the CDAWeb servers?  Is the syntax 'curl -L https://spdf.cdaweb.nasa.gov/pub/$datafile | aws s3 cp - s3://cdaweb-staging/$datafile' ?
+New
+
+curl -sSL "https://spdf.gsfc.nasa.gov/pub/data/$datafile" | aws s3 cp - s3://helio-data-staging/spdf/cdaweb/data/$datafile
+
+this is exact syntax used
+
+********************
+
+**note possible bug, it can't add new IDs to the catalog.json, can it?
+
+Step 0: update cloudspider.py to include a 'collection' flag so it will
+            only tree/spider CDAWeb if asked nicely
+	    
+Step 1: fetch CDAWeb via their script, creating 'spdf_curr'
+TAKES AROUND 9 min to download, 4.6GB
+
+        generate a manifest_catalog.csv from cloudcatalog-spider --create_manifest True --collection CDAWeb
+TAKES AROUND 48 min for entire 1.5GB catalog, 9,228,092 files
+
+
+	process the manifest to make it look like 'spdf_curr' and call it
+	   'spdf_prev'
+	do their own .sh diff of the two to generate the new holdings,
+	and parse into a set of CURL calls for Omar
+curl -sSL "https://spdf.gsfc.nasa.gov/pub/data/$datafile" | aws s3 cp - s3://helio-data-staging/spdf/cdaweb/data/$datafile
+
+  spdf_cur is 'date GMT  fsize name'
+  manifest.csv is 'start, stop, s3uri' (no fsize?)
+  
+BUG: manifest_spider names use
+   s3://gov-nasa-hdrl-data1/cdaweb/data/[id]
+SHOULD BE
+   s3://gov-nasa-hdrl-data1/spdf/cdaweb/data/[id]
+
+** So need to (temporarily) replace spider's s3://uri/spdf/cdaweb with 'pub'
+to compare
+
+(later change helio-data-staging to cdaweb-staging)
+
+        Also generate a new set of indices and catalog.json based on
+	    spdf_curr i.e. assuming all copies will work
+	    using manifest2indices.py (with appropriate flags)
+	    
+        All this (curl-me script and indices and catalog.json) go into
+	   s3://cdaweb-manifests/
+
+2) Omar runs curl-me script which appends bad files to
+      s3://cdaweb-manifests/errors.log,
+   also does copy to ODR which also appends bad files to same errors.log
+
+3) need a catalog item delister script:
+    given filename X, extracts ID and year as usual, finds ID_YYYY.csv,
+        removes it.
+	v2 (not yet): updates.csv to tweak year boundaries
+	    (not yet because we currently ignore updates to 'end' if
+	      < current_end, so this may not be viable until that's checked,
+	      which is a bigger task because it means checking the full
+	      catalog to see what the 'true' end is.  Probably not needed
+	      in a hurry, it's for edge cases)
+
+    run this on s3://cdaweb-manifest/errors.log to update cdaweb-manifest
+    indices
+
+    (if no errors we can skip this step, yay!)
+
+4) Omar copies indices and catalog.json to ODR
+
+5) run cloudcatalog.validator --collection CDAWeb
+     (some overcode on top of cloud-spider, both short form
+     for a quick check, then the full one for a better check if short one
+     passes) (maybe also full check including non-CDAWeb or, better, a
+     tool that diffs 2 catalog.json files and gives an intelligent summary
+     of differences so we can see if any non-CDAWeb were affected)
+
+6) once/month, VALIDATE indices vs MANIFEST.csv and see where we're at!!!
+     (rather than 're-generate indices', better to be able to validate at
+     any time.  Two outcomes are: some files don't actually exist so
+     delist them; some files aren't cataloged so add them.)
+     
+
+est ~20,000 files/day, 200 GB/day.

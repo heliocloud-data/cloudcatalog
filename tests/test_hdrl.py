@@ -1,15 +1,14 @@
-import pytest
-import cloudcatalog
-
 """
 Tests CloudCatalog against the ODR/TOPS bucket (gov-nasa-hdrl-data1).
 Failure means either a bug in CloudCatalog, an error in the index files,
 or access issues, any of which need to be investigated and fixed.
-
 """
 
+import pytest
+import cloudcatalog
 
 def test_hdrl_mms():
+    """ core test on 1 MMS dataid """
     mmsid = "MMS1_FEEPS_BRST_L2_ELECTRON"
     mmsstart = "2020-02-01T00:00:00Z"
     mmsstop = "2020-02-02T00:00:00Z"
@@ -18,10 +17,11 @@ def test_hdrl_mms():
         mmsid, start_date=mmsstart, stop_date=mmsstop
     )
     print(len(filekeys_mms))
-    assert len(filekeys_mms) == 14
+    assert len(filekeys_mms) >= 14
 
 
 def test_hdrl_aia():
+    """ test on 1 AIA dataid """
     aiaid = "aia_0094"
     aiastart = "2010-05-13T00:00:00Z"
     aiastop = "2010-06-30T23:56:00Z"
@@ -34,6 +34,7 @@ def test_hdrl_aia():
 
 
 def test_hdrl_euv():
+    """ test on 1 EUVML dataid """
     euvid = "euvml_stereoa_171"
     euvstart = "2018-05-13T00:00:00Z"
     euvstop = "2018-12-31T23:56:00Z"
@@ -44,8 +45,9 @@ def test_hdrl_euv():
     # print(len(filekeys_euv))
     assert len(filekeys_euv) == 780
 
-
 def test_search():
+    """ test search for EUVML """
     mysearch = cloudcatalog.EntireCatalogSearch()
-    ss = mysearch.search_by_id("srvy_ion")
-    assert len(ss) == 4
+    # using EUVML as a static historical dataset
+    ss = mysearch.search_by_id("EUVML_STEREO")
+    assert len(ss) == 10

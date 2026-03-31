@@ -7,103 +7,105 @@ Contact Lisa Knowles lisa.knowles@jhuapl.edu
 """
 
 import json
-from smart_open import open
 import re
+import sys
+from smart_open import open
 
 
 def valid_endpoint(collectionendpoint):
+    """ ensures compliance """
     if not re.search("^[s3://|https://].*/$", collectionendpoint):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_id(datasetid):
+    """ ensures compliance """
     if not re.search(r"^[a-zA-Z0-9_-]*$", datasetid):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_index(filepath):
+    """ ensures compliance """
     if not re.search("^[s3://|https://].*/.*/$", filepath):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_start(startstr):
+    """ ensures compliance """
     if not re.fullmatch(
         r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", startstr
     ):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_stop(stopstr):
+    """ ensures compliance """
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", stopstr):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_modification(modstr):
+    """ ensures compliance """
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", modstr):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_indextype(indextype):
+    """ ensures compliance """
     if not re.search("^(csv|csv-zip|parquet)$", indextype, re.IGNORECASE):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_filetype(filetype):
+    """ ensures compliance """
     if not re.search(
         "^(fits|csv|cdf|netcdf3|netcdf4|hdf5|datamap|txt|binary|other)$",
         filetype,
         re.IGNORECASE,
     ):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_creation(creationstr):
+    """ ensures compliance """
     if not re.fullmatch(
         r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", creationstr
     ):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_expiration(expstr):
+    """ ensures compliance """
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", expstr):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_verified(verifstr):
+    """ ensures compliance """
     if not re.search(r"\d{4}-\d{2}-\d{2}T\d{2}(:\d{2}(:\d{2}(\.\d+)?)?)?Z", verifstr):
         return False
-    else:
-        return True
+    return True
 
 
 def valid_multiyear(multiyearboo):
+    """ ensures compliance """
     if not re.search("^(True|False)$", multiyearboo, re.IGNORECASE):
         return False
-    else:
-        return True
+    return True
 
 
 def validator(catalogname):
+    """ ensures compliance """
     with open(catalogname, "r") as fin:
         topcatalog = json.load(fin)
 
@@ -259,5 +261,9 @@ def validator(catalogname):
             )
 
 
-# if __name__ == 'main':
-#    validator(catalogname)
+if __name__ == "main":
+    try:
+        catalogname = sys.argv[1]
+        validator(catalogname)
+    except Exception as e:
+        print("Needs catalog name")
