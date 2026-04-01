@@ -59,7 +59,7 @@ jobs:
             ! -path "*/cdk.out/*" \
             ! -path "*/tests/*" \
             ! -path "*/test/*" \
-            -print0 | xargs -0 -r pylint --disable-all --enable=E
+            -print0 | xargs -0 -r pylint --disable=all --enable=E
 
       - name: Run pytest with coverage
         run: |
