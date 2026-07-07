@@ -2,9 +2,13 @@ ame: PyHC Actions
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - master
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - master
   schedule:
     # Run quarterly: Jan 1, Apr 1, Jul 1, Oct 1 at 3pm UTC (8am MST)
     - cron: 0 15 1 1,4,7,10 *
