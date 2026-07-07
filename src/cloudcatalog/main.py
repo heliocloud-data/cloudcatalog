@@ -128,9 +128,10 @@ def fetch_S3_n_lines(
         chunk = min(chunk * 2, 64 * 1024)
         if max_bytes is not None:
             chunk = min(chunk, int(max_bytes) - len(got))
-
     data = bytes(got)
-    return True, data if rawbytes else True, data.decode("utf-8", errors="replace")
+    if not rawbytes:
+        data = data.decode("utf-8", errors="replace")
+    return True, data
 
 
 def fetch_S3(
@@ -161,23 +162,24 @@ def fetch_S3(
 
     # little optimization hack here, for CSV files where you only want
     # the first few lines
+    catalog = None
     if max_lines is not None:
-        return fetch_S3_n_lines(
+        status, response = fetch_S3_n_lines(
             s3_client, mybucket, mykey, max_lines=2, rawbytes=rawbytes
         )
-
-    response = s3_client.get_object(Bucket=mybucket, Key=mykey)
-    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if status:
+            catalog = response
+    else:
+        response = s3_client.get_object(Bucket=mybucket, Key=mykey)
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if "Body" in response and status == 200:
+            catalog_bytes = response["Body"].read()
+            if rawbytes:
+                catalog = catalog_bytes
+            else:
+                catalog = json.loads(catalog_bytes)
     # print("  Success S3 unsigned",status)
-    catalog = None
-    if "Body" in response and status == 200:
-        catalog_bytes = response["Body"].read()
-        if rawbytes:
-            catalog = catalog_bytes
-        else:
-            catalog = json.loads(catalog_bytes)
-    elif status != 200:
-        print("Error, status = ", status)
+
     return status, catalog
 
 
@@ -688,6 +690,7 @@ class CloudCatalog:
         # Local or different: Could be same bucket or different bucket
         # not enforcing being same bucket
         # allowing https addition
+        bucket_name = self.bucket_name
         if not loc.startswith("http"):
             bucket_name = loc[5:].split("/", 1)[0]
             loc = loc[len(bucket_name) + 6 :]
@@ -719,7 +722,7 @@ class CloudCatalog:
                     fr_bytes_file = fetch_S3orURL(loc + filename, rawbytes=True)
                 else:
                     fr_bytes_file = fetch_S3orURL(
-                        self.bucket_name + "/" + loc + filename, rawbytes=True
+                        bucket_name + "/" + loc + filename, rawbytes=True
                     )
 
                 if fr_bytes_file is None:
@@ -970,14 +973,12 @@ class CloudCatalog:
 
         year = start[:4]
         loc = f"{index.rstrip('/')}/{id}_{year}.csv"
-
         try:
             fr_bytes_file = fetch_S3orURL(loc, rawbytes=True, max_lines=2)
         except Exception as e:
             raise RuntimeError(f"Failed to read index CSV {loc}") from e
 
         df = pd.read_csv(fr_bytes_file, nrows=1)
-
         if df.shape[1] < 3:
             raise RuntimeError(f"Index CSV has fewer than 3 columns: {loc}")
 
