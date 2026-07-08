@@ -3,6 +3,11 @@ boto3
 botocore
 pandas
 python-dateutil
+requests
+smart_open
+flask
+aiohttp
+jsonschema
 pytest
 pytest-cov
 coverage
