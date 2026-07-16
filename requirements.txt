@@ -4,3 +4,5 @@ pandas
 python-dateutil
 requests
 smart_open
+jsonschema
+aiohttp

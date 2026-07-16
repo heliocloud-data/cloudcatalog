@@ -11,3 +11,5 @@ coverage
 pylint
 black
 pre-commit
+jsonschema
+aiohttp
