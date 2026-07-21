@@ -5,12 +5,11 @@ pandas
 python-dateutil
 requests
 smart_open
-flask
-aiohttp
-jsonschema
 pytest
 pytest-cov
 coverage
 pylint
 black
 pre-commit
+jsonschema
+aiohttp
