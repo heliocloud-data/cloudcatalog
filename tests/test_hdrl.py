@@ -17,7 +17,7 @@ def test_hdrl_mms():
     filekeys_mms = fr.request_cloud_catalog(
         mmsid, start_date=mmsstart, stop_date=mmsstop
     )
-    print(len(filekeys_mms))
+    print("Number of MMS keys,", len(filekeys_mms))
     assert len(filekeys_mms) >= 14
 
 
@@ -30,7 +30,7 @@ def test_hdrl_aia():
     filekeys_aia = fr.request_cloud_catalog(
         aiaid, start_date=aiastart, stop_date=aiastop
     )
-    # print(len(filekeys_aia))
+    print("Number of AIA keys,", len(filekeys_aia))
     assert len(filekeys_aia) == 16783
 
 
@@ -43,7 +43,7 @@ def test_hdrl_euv():
     filekeys_euv = fr.request_cloud_catalog(
         euvid, start_date=euvstart, stop_date=euvstop
     )
-    # print(len(filekeys_euv))
+    print("Number of EUVML keys:", len(filekeys_euv))
     assert len(filekeys_euv) == 780
 
 
