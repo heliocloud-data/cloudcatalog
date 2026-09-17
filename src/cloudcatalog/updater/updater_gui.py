@@ -23,7 +23,7 @@ def updater_gui():
         json_path_val = json_path_var.get()
         json_updates_val = json_updates_var.get()
         collections_filter_val = filter_var.get().strip() or None
-        debug_val = debug_var.get()
+        verbose_val = verbose_var.get()
 
         if not json_path_val or not json_updates_val:
             messagebox.showerror("Error", "Both JSON file paths are required.")
@@ -34,7 +34,7 @@ def updater_gui():
                 json_path=json_path_val,
                 json_updates=json_updates_val,
                 collections_filter=collections_filter_val,
-                debug=debug_val,
+                verbose=verbose_val,
             )
             messagebox.showinfo("Success", "Catalog updated successfully.")
         except Exception as e:
@@ -52,7 +52,7 @@ def updater_gui():
     json_path_var = tk.StringVar(value=default_json_path)
     json_updates_var = tk.StringVar(value=default_json_updates)
     filter_var = tk.StringVar()
-    debug_var = tk.BooleanVar(value=True)
+    verbose_var = tk.BooleanVar(value=True)
 
     # Layout
     ttk.Label(root, text="Original Catalog (json_path):").grid(
@@ -76,7 +76,7 @@ def updater_gui():
     )
     ttk.Entry(root, textvariable=filter_var, width=40).grid(row=2, column=1)
 
-    ttk.Checkbutton(root, text="Debug mode", variable=debug_var).grid(
+    ttk.Checkbutton(root, text="Verbose mode", variable=verbose_var).grid(
         row=3, column=1, sticky="w"
     )
 
