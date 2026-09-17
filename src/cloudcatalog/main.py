@@ -25,6 +25,7 @@ from io import BytesIO
 from datetime import datetime
 from math import ceil
 from typing import List, Dict, Tuple, Optional, Callable  # Union
+from botocore.exceptions import BotoCoreError, ClientError
 import os
 import json
 import logging
@@ -79,6 +80,9 @@ def fetch_S3_n_lines(
     """Ranged behavior: read only the first chunk(s)
     Start with a small-ish chunk; grow if we haven't captured enough lines.
     Keep an upper bound to avoid large downloads.
+
+    Returns ``(True, data)`` on success and ``(False, None)`` when the object
+    cannot be read.
     """
     chunk = 4096
     if max_bytes is not None:
@@ -95,16 +99,20 @@ def fetch_S3_n_lines(
         if end < start:
             break
 
-        response = s3_client.get_object(
-            Bucket=mybucket,
-            Key=mykey,
-            Range=f"bytes={start}-{end}",
-        )
-        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        try:
+            response = s3_client.get_object(
+                Bucket=mybucket,
+                Key=mykey,
+                Range=f"bytes={start}-{end}",
+            )
+        except (BotoCoreError, ClientError, OSError) as exc:
+            logging.debug("Unable to read S3 range %s/%s: %s", mybucket, mykey, exc)
+            return False, None
 
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
         # Range requests typically return 206 on success. :contentReference[oaicite:1]{index=1}
         if "Body" not in response or status not in (200, 206):
-            break
+            return False, None
 
         part = response["Body"].read()
         if not part:
@@ -128,6 +136,7 @@ def fetch_S3_n_lines(
         chunk = min(chunk * 2, 64 * 1024)
         if max_bytes is not None:
             chunk = min(chunk, int(max_bytes) - len(got))
+
     data = bytes(got)
     if not rawbytes:
         data = data.decode("utf-8", errors="replace")
@@ -137,134 +146,183 @@ def fetch_S3_n_lines(
 def fetch_S3(
     s3url, unsigned=True, region=None, rawbytes=False, max_lines=None, **client_kwargs
 ):
-    """default is JSON, but can return raw bytes"""
-    # print("Trying S3, unsigned=",unsigned,"region=",region)
+    """Fetch an S3 object. Default is JSON, but can return raw bytes.
+
+    Returns
+    -------
+    tuple[int | None, object | None]
+        HTTP status and content. ``content`` is ``None`` when the object is
+        unavailable or cannot be decoded.
+    """
     bucket_prefix = "s3://"
     mybucket, mykey = s3url_to_bucketkey(s3url, bucket_prefix=bucket_prefix)
-    # print("Looking for: ",mybucket,mykey)
-    if unsigned:
-        if region is not None:
-            s3_client = boto3.client(
-                "s3",
-                config=Config(signature_version=UNSIGNED),
-                region=region,
-                **client_kwargs,
-            )
+
+    try:
+        if unsigned:
+            if region is not None:
+                s3_client = boto3.client(
+                    "s3",
+                    config=Config(signature_version=UNSIGNED),
+                    region=region,
+                    **client_kwargs,
+                )
+            else:
+                s3_client = boto3.client(
+                    "s3", config=Config(signature_version=UNSIGNED), **client_kwargs
+                )
         else:
-            s3_client = boto3.client(
-                "s3", config=Config(signature_version=UNSIGNED), **client_kwargs
-            )
-    else:
-        if region is not None:
-            s3_client = boto3.client("s3", region=region, **client_kwargs)
-        else:
-            s3_client = boto3.client("s3", **client_kwargs)
+            if region is not None:
+                s3_client = boto3.client("s3", region=region, **client_kwargs)
+            else:
+                s3_client = boto3.client("s3", **client_kwargs)
+    except (BotoCoreError, OSError) as exc:
+        logging.debug("Unable to create S3 client for %s: %s", s3url, exc)
+        return None, None
 
     # little optimization hack here, for CSV files where you only want
     # the first few lines
     catalog = None
-    if max_lines is not None:
-        status, response = fetch_S3_n_lines(
-            s3_client, mybucket, mykey, max_lines=2, rawbytes=rawbytes
-        )
-        if status:
-            catalog = response
-    else:
-        response = s3_client.get_object(Bucket=mybucket, Key=mykey)
-        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-        if "Body" in response and status == 200:
-            catalog_bytes = response["Body"].read()
-            if rawbytes:
-                catalog = catalog_bytes
-            else:
-                catalog = json.loads(catalog_bytes)
-    # print("  Success S3 unsigned",status)
+    status = None
+    try:
+        if max_lines is not None:
+            status, response = fetch_S3_n_lines(
+                s3_client, mybucket, mykey, max_lines=max_lines, rawbytes=rawbytes
+            )
+            if status:
+                catalog = response
+        else:
+            response = s3_client.get_object(Bucket=mybucket, Key=mykey)
+            status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if "Body" in response and status == 200:
+                catalog_bytes = response["Body"].read()
+                catalog = catalog_bytes if rawbytes else json.loads(catalog_bytes)
+    except (BotoCoreError, ClientError) as exc:
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        logging.debug("Unable to fetch S3 object %s/%s: %s", mybucket, mykey, exc)
+        catalog = None
+    except (OSError, ValueError) as exc:
+        logging.debug("Unable to read/decode S3 object %s/%s: %s", mybucket, mykey, exc)
+        catalog = None
 
     return status, catalog
 
 
 def fetch_url(s3url, rawbytes=False):
-    """default is JSON, but can return raw bytes"""
+    """Fetch a resource over HTTP/HTTPS.
+
+    Returns ``(status, content)``. ``content`` is ``None`` for a non-200
+    response, request failure, or invalid JSON.
+
+    Default is JSON, but can return raw bytes.
+    """
     httpurl = s3url_to_https(s3url)
-    response = requests.get(httpurl)
-    status = response.status_code
-    if rawbytes:
-        catalog = response.content
-    else:
-        catalog = response.json()
-    return status, catalog
+    try:
+        response = requests.get(httpurl)
+        status = response.status_code
+        if status != 200:
+            return status, None
+        if rawbytes:
+            return status, response.content
+        return status, response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logging.debug("Unable to fetch URL %s: %s", httpurl, exc)
+        return None, None
 
 
 def fetch_S3orURL(
     s3url, region="us-east-1", rawbytes=False, max_lines=None, **client_kwargs
 ):
-    """To get around vagualities of S3 access, this tries a cascade of:
+    """Fetch an object from S3, HTTP(S), or a local file.
+
+    To get around vagualities of S3 access, this tries a cascade of:
     straight fetch of S3 using your existing permissions
     fetch S3 unsigned/anonymous
     fetch S3 for a specified region only, defaulting to us-east-1
     fetch the S3 contents via the AWS-equivalent URL
+
+    Missing or inaccessible resources are represented explicitly by ``None``.
+    This makes absence an ordinary result for callers instead of requiring
+    exception handling around normal catalog lookup misses.
+
+    Returns
+    -------
+    dict | BytesIO | None
+        Parsed JSON by default, a ``BytesIO`` object when ``rawbytes=True``,
+        or ``None`` when the resource cannot be found/read.
     """
     diag = False
 
     if diag:
         print("Trying ", s3url)
-    try:
-        if diag:
-            print("Calling unsigned")
-        status, catalog = fetch_S3(
-            s3url,
-            unsigned=True,
-            rawbytes=rawbytes,
-            max_lines=max_lines,
-            **client_kwargs,
-        )
-    except:
-        try:
-            if diag:
-                print("Calling signed")
-            status, catalog = fetch_S3(
+
+    attempts = (
+        (
+            "unsigned",
+            lambda: fetch_S3(
+                s3url,
+                unsigned=True,
+                rawbytes=rawbytes,
+                max_lines=max_lines,
+                **client_kwargs,
+            ),
+        ),
+        (
+            "signed",
+            lambda: fetch_S3(
                 s3url,
                 unsigned=False,
                 rawbytes=rawbytes,
                 max_lines=max_lines,
                 **client_kwargs,
-            )
-        except:
-            try:
-                if diag:
-                    print("Calling region")
-                status, catalog = fetch_S3(
-                    s3url,
-                    unsigned=True,
-                    region=region,
-                    rawbytes=rawbytes,
-                    max_lines=max_lines,
-                    **client_kwargs,
-                )
-            except:
-                try:
-                    if diag:
-                        print("Calling url")
-                    status, catalog = fetch_url(s3url, rawbytes=rawbytes)
-                    if status == 404:
-                        return None
-                except:
-                    try:
-                        if diag:
-                            print("Calling local file")
-                        with open(s3url) as fin:
-                            catalog = json.load(fin)
-                        rawbytes = False
-                        status = True
-                    except:
-                        if diag:
-                            print("Cannot fetch catalog, exiting.")
-                        return None
+            ),
+        ),
+        (
+            "region",
+            lambda: fetch_S3(
+                s3url,
+                unsigned=True,
+                region=region,
+                rawbytes=rawbytes,
+                max_lines=max_lines,
+                **client_kwargs,
+            ),
+        ),
+    )
+
+    catalog = None
+    for name, fetcher in attempts:
+        try:
+            if diag:
+                print(f"Calling {name}")
+            _, catalog = fetcher()
+        except Exception as exc:
+            logging.debug("%s fetch failed for %s: %s", name, s3url, exc)
+            catalog = None
+        if catalog is not None:
+            break
+
+    if catalog is None:
+        try:
+            if diag:
+                print("Calling url")
+            _, catalog = fetch_url(s3url, rawbytes=rawbytes)
+        except Exception as exc:
+            logging.debug("URL fetch failed for %s: %s", s3url, exc)
+            catalog = None
+
+    if catalog is None:
+        try:
+            if diag:
+                print("Calling local file")
+            with open(s3url) as fin:
+                catalog = json.load(fin)
+            rawbytes = False
+        except (OSError, ValueError) as exc:
+            logging.debug("Local file fetch failed for %s: %s", s3url, exc)
+            return None
+
     if rawbytes:
-        fr_bytes_file = BytesIO()
-        fr_bytes_file.write(catalog)
-        fr_bytes_file.seek(0)
-        return fr_bytes_file
+        return BytesIO(catalog)
 
     return catalog
 
@@ -273,12 +331,16 @@ class CatalogRegistry:
     """Use to work with the the global catalog (catalog of catalogs)."""
 
     def __init__(self, catalog_url: Optional[str] = None) -> None:
-        """
+        """Load the global catalog registry.
+
+        An unavailable registry is represented by ``None`` so callers can
+        distinguish it from a successfully retrieved registry with zero entries.
         Parameters:
-            catalog_url: either the environment variable
-                         `ROOT_CATALOG_REGISTRY_URL` if it exists
-                         or the smce heliocloud global catalog by default,
-                         otherwise the explicitly passed in url.
+          catalog_url: either the environment variable
+                       `ROOT_CATALOG_REGISTRY_URL` if it exists
+                       or the smce heliocloud global catalog by default,
+                       otherwise the explicitly passed in url.
+
         """
         # Set the catalog URL (env variable or default if not manually provided)
         if catalog_url is None:
@@ -286,30 +348,40 @@ class CatalogRegistry:
             if catalog_url is None:
                 catalog_url = "http://heliocloud.org/catalog/HelioDataRegistry.json"
         self.catalog_url = catalog_url
+        self.catalog: Optional[Dict] = None
 
-        # Load the content from json
-        response = requests.get(self.catalog_url)
-        if response.status_code == 200:
+        try:
+            response = requests.get(self.catalog_url)
+            if response.status_code != 200:
+                logging.warning(
+                    "Global catalog unavailable (HTTP %s): %s",
+                    response.status_code,
+                    self.catalog_url,
+                )
+                return
             self.catalog = response.json()
-        else:
-            raise requests.ConnectionError(
-                f"Get Request for Global Catalog Failed. Catalog url: {self.catalog_url}"
+        except (requests.RequestException, ValueError) as exc:
+            logging.warning(
+                "Global catalog unavailable: %s (%s)", self.catalog_url, exc
             )
+            return
 
-        # Check global catalog format assumptions
-        if "registry" not in self.catalog:
-            raise KeyError("Invalid catalog. Missing registry key.")
+        # check global catalog format assumptions
+        if not isinstance(self.catalog, dict) or "registry" not in self.catalog:
+            raise ValueError("Invalid catalog: missing registry key.")
+
         for reg_entry in self.catalog["registry"]:
             if (
                 "endpoint" not in reg_entry
                 or "name" not in reg_entry
                 or "region" not in reg_entry
             ):
-                raise KeyError(
-                    f"Invalid registry entry in catalog. Missing endpoint or name or region key. Registry entry: {reg_entry}"
+                raise ValueError(
+                    "Invalid registry entry: missing endpoint, name, or region key. "
+                    f"Registry entry: {reg_entry}"
                 )
 
-    def get_catalog(self) -> Dict:
+    def get_catalog(self) -> Optional[Dict]:
         """
         Get the global catalog with all metadata and registry entries.
 
@@ -325,7 +397,7 @@ class CatalogRegistry:
         Returns:
             A list of catalog dicts, which are each entry in the registry.
         """
-        return self.catalog["registry"]
+        return self.catalog.get("registry", []) if self.catalog is not None else []
 
     def get_entries_name_region(self) -> List[Tuple[str, str]]:
         """
@@ -336,24 +408,16 @@ class CatalogRegistry:
             global catalog registry.
         """
         # Get the name and region of each entry in the catalog
-        return [(x["name"], x["region"]) for x in self.catalog["registry"]]
+        return [(x["name"], x["region"]) for x in self.get_registry()]
 
-    def get_entries(self):
-        """
-        Get all data for a given registry
-
-        Returns:
-            A dictionary for that entry
-        """
-        # Get the name and region of each entry in the catalog
-        myjson = [x for x in self.catalog["registry"]]
-        if myjson is not None:
-            myjson = myjson[0]
-        return myjson
+    def get_entries(self) -> Optional[Dict]:
+        """Return the first registry entry, or ``None`` when none exist."""
+        entries = self.get_registry()
+        return entries[0] if entries else None
 
     def get_endpoint(
         self, name: str, region_prefix: str = "", force_first: bool = False
-    ) -> str:
+    ) -> Optional[str]:
         """
         Get the s3 endpoint given the name and region.
 
@@ -369,7 +433,7 @@ class CatalogRegistry:
         # Find registries that match the specified name and region prefix
         registries = [
             x
-            for x in self.catalog["registry"]
+            for x in self.get_registry()
             if x["name"] == name and x["region"].startswith(region_prefix)
         ]
         # Check to make sure all entries have unique names + prefixed region
@@ -382,7 +446,12 @@ class CatalogRegistry:
                 "Entries do not all have unique names but have different regions, please further specify region_prefix."
             )
         elif len(registries) == 0:
-            raise KeyError("No endpoint found with given name and region_prefix.")
+            logging.debug(
+                "No endpoint found for name=%s, region_prefix=%s",
+                name,
+                region_prefix,
+            )
+            return None
         return registries[0]["endpoint"]
 
 
@@ -441,9 +510,7 @@ class CloudCatalog:
 
         # Store the bucket name for future use
         self.bucket_name = bucket_name
-
         self.cache = cache
-
         self.altcatalog = altcatalog
 
         catname = "catalog.json"
@@ -453,17 +520,16 @@ class CloudCatalog:
         self.catalog = fetch_S3orURL(bucket_name + "/" + catname, **client_kwargs)
 
         if self.catalog is None:
-            raise KeyError(f"Invalid catalog, does not Exist. Catalog: {self.catalog}")
+            logging.warning("Catalog unavailable: %s/%s", bucket_name, catname)
+        else:
+            # Structural problems are not ordinary lookup misses. Keep them explicit.
+            if any([key not in self.catalog for key in ["status", "catalog"]]):
+                raise ValueError(
+                    f"Invalid catalog. Missing either status or catalog key. Catalog: {self.catalog}"
+                )
 
-        # Check catalog format assumptions
-        if any([key not in self.catalog for key in ["status", "catalog"]]):
-            raise KeyError(
-                f"Invalid catalog. Missing either status or catalog key. Catalog: {self.catalog}"
-            )
-
-        # Check status and raise exception
-        if self.catalog["status"]["code"] == 1400:
-            raise UnavailableData(self.catalog["status"])
+            if self.catalog.get("status", {}).get("code") == 1400:
+                raise UnavailableData(self.catalog["status"])
 
         # Check catalog entries format assumptions
         for entry in self.catalog["catalog"]:
@@ -479,6 +545,10 @@ class CloudCatalog:
             loc = entry["index"]
 
             # allowing https addition
+            """ Note we enforce that the Metadata has to point to items
+            within the same bucket.  This is for security, so people do not
+            make an index that spans multiple possibly uncontrolled buckets.
+            """
             if not (
                 (loc.startswith(bucket_prefix) or loc.startswith("http"))
                 and loc[-1] == "/"
@@ -496,17 +566,14 @@ class CloudCatalog:
             if self.cache_folder is not None and not os.path.exists(self.cache_folder):
                 os.mkdir(self.cache_folder)
 
-            # Copy the content of the catalog to this file (overwrites)
-            with open(os.path.join(cache_folder, catname), "w") as file:
-                json.dump(self.catalog, file, indent=4, ensure_ascii=False)
+            # Copy the content of the catalog to this file (overwrites).
+            # Do not cache an unavailable catalog as JSON null.
+            if self.catalog is not None:
+                with open(os.path.join(cache_folder, catname), "w") as file:
+                    json.dump(self.catalog, file, indent=4, ensure_ascii=False)
 
-    def get_catalog(self) -> Dict:
-        """
-        Gets the raw catalog downloaded from the bucket.
-
-        Returns:
-            The catalog dict.
-        """
+    def get_catalog(self) -> Optional[Dict]:
+        """Return the downloaded catalog, or ``None`` if it is unavailable."""
         return self.catalog
 
     def get_entries_id_title(self) -> List[Tuple[str, str]]:
@@ -514,22 +581,18 @@ class CloudCatalog:
         Get just the entry id and title of each entry in the catalog.
 
         Returns:
-            A list of tuples with the id and title from the
-            global catalog registry.
+            A list of (id, title) tuples. Returns an empty list if the
+            catalog is unavailable or contains no entries.
         """
         # Get the name and region of each entry in the catalog
-        return [(x["id"], x["title"]) for x in self.catalog["catalog"]]
+        entries = self.catalog.get("catalog", []) if self.catalog is not None else []
+        return [(x["id"], x["title"]) for x in entries]
 
     def get_entries_dict(self) -> List[Dict]:
-        """
-        Get all the items of each entry in the catalog.
+        """Return all catalog entries, or an empty list if unavailable."""
+        return self.catalog.get("catalog", []) if self.catalog is not None else []
 
-        Returns:
-            The json items from the catalog
-        """
-        return self.catalog["catalog"]
-
-    def get_entry(self, entry_id: str) -> Dict:
+    def get_entry(self, entry_id: str) -> Optional[Dict]:
         """
         Get the entry (with full info) using the given entry_id.
 
@@ -537,9 +600,10 @@ class CloudCatalog:
             A list of tuples with the id and title from the
             global catalog registry.
         """
-        entries = [x for x in self.catalog["catalog"] if x["id"] == entry_id]
+        entries = [x for x in self.get_entries_dict() if x.get("id") == entry_id]
         if len(entries) == 0:
-            raise KeyError(f"No entries found with entry_id ({entry_id}).")
+            logging.debug("No catalog entry found with entry_id=%s", entry_id)
+            return None
         elif len(entries) > 1:
             raise ValueError(
                 f"Invalid catalog with multiple entries with the same ID. ID: {entry_id}"
@@ -549,6 +613,9 @@ class CloudCatalog:
     def robust_get_entry(self, id: str):
         """adds case-insensitivity to get_entry()"""
         cat = self.get_catalog()
+
+        if cat is None:
+            return None
 
         # Case A: get_catalog() returns raw JSON dict
         if isinstance(cat, dict):
@@ -648,20 +715,11 @@ class CloudCatalog:
                 f"start_date ({start_date}) must be equal or less than stop_date ({stop_date})."
             )
 
-        # Get the entry with given catalog id from the list of catalogs
-        entry = [
-            catalog_entry
-            for catalog_entry in self.catalog["catalog"]
-            if catalog_entry["id"] == catalog_id
-        ]
-
-        # Raises error if no matching entry is found
-        if len(entry) == 0:
-            raise KeyError(f"No catalog entry found with id: {catalog_id}")
-        elif len(entry) > 1:
-            raise ValueError(f"No unique catalog entry found with id: {catalog_id}")
-        else:
-            entry = entry[0]
+        # Dataset absence is a normal lookup miss.
+        entry = self.get_entry(catalog_id)
+        if entry is None:
+            logging.debug("No catalog entry found with id=%s", catalog_id)
+            return pd.DataFrame()
 
         # Get some necessary variables
         eid, loc, catalog_start_date, catalog_stop_date = (
@@ -848,6 +906,9 @@ class CloudCatalog:
             # Get the S3 URL from the key in the dataframe
             s3_url = row["datakey"]
             fr_bytes_file = fetch_S3orURL(s3_url, rawbytes=True)
+            if fr_bytes_file is None:
+                logging.warning("Skipping unavailable data file: %s", s3_url)
+                continue
             """ Pass the BytesIO object, start date, and file size to
                 the processing function
                 start may be a date object so making a string just in case
@@ -935,10 +996,12 @@ class CloudCatalog:
 
         return out
 
-    def sample_file(self, id: str) -> str:
+    def sample_file(self, id: str) -> Optional[str]:
         """
-        Return a sample data filename for a dataset by reading the first
-        data line of its first index CSV.
+        Return a sample data filename for a dataset.
+
+        Returns ``None`` if the dataset or its first index file is unavailable.
+        Malformed catalog/index data remains an explicit error.
 
         Index file format:
             [index]/[id]_[YYYY].csv
@@ -954,33 +1017,27 @@ class CloudCatalog:
         -------
         str
             Sample data filename.
-
-        Raises
-        ------
-        KeyError
-            If the dataset id is not found.
-        RuntimeError
-            If the CSV cannot be read or is malformed.
         """
         entry = self.get_entry(id)
         if entry is None:
-            raise KeyError(f"Dataset id not found: {id}")
+            logging.debug("Dataset id not found: %s", id)
+            return None
 
         index = entry.get("index")
         start = entry.get("start")
         if not index or not start:
-            raise RuntimeError(f"Missing index or start for dataset {id}")
+            raise ValueError(f"Missing index or start for dataset {id}")
 
         year = start[:4]
         loc = f"{index.rstrip('/')}/{id}_{year}.csv"
-        try:
-            fr_bytes_file = fetch_S3orURL(loc, rawbytes=True, max_lines=2)
-        except Exception as e:
-            raise RuntimeError(f"Failed to read index CSV {loc}") from e
+        fr_bytes_file = fetch_S3orURL(loc, rawbytes=True, max_lines=2)
+        if fr_bytes_file is None:
+            logging.debug("Index CSV unavailable: %s", loc)
+            return None
 
         df = pd.read_csv(fr_bytes_file, nrows=1)
         if df.shape[1] < 3:
-            raise RuntimeError(f"Index CSV has fewer than 3 columns: {loc}")
+            raise ValueError(f"Index CSV has fewer than 3 columns: {loc}")
 
         return str(df.iloc[0, 2])
 
@@ -1006,10 +1063,21 @@ class EntireCatalogSearch:
         entries = self.global_catalog.get_registry()
         for entry in entries:
             endpoint = self.global_catalog.get_endpoint(entry["name"], entry["region"])
+            if endpoint is None:
+                logging.debug(
+                    "No endpoint for registry entry %s (Region: %s)",
+                    entry["name"],
+                    entry["region"],
+                )
+                failed_entries.append((entry["name"], entry["region"]))
+                continue
             try:
                 cloud_catalog = CloudCatalog(endpoint, cache=False, **client_kwargs)
                 local_catalog = cloud_catalog.get_catalog()
-                self.combined_catalog.append(local_catalog)
+                if local_catalog is not None:
+                    self.combined_catalog.append(local_catalog)
+                else:
+                    failed_entries.append((entry["name"], entry["region"]))
             except Exception as e:
                 logging.debug(
                     f"Failed to fetch local catalog for entry {entry['name']} (Region: {entry['region']}; Endpoint: {entry['endpoint']}): {e}\n"
