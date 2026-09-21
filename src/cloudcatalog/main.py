@@ -26,6 +26,7 @@ from datetime import datetime
 from math import ceil
 from typing import List, Dict, Tuple, Optional, Callable  # Union
 from botocore.exceptions import BotoCoreError, ClientError
+import fnmatch
 import os
 import json
 import logging
@@ -877,6 +878,22 @@ class CloudCatalog:
         frs = frs[(frs["stop"] >= start_date) & (frs["start"] < stop_date)]
 
         return frs
+
+    @staticmethod
+    def ls_wildcard(cc_df: pd.DataFrame, pattern: str, use_basename: bool = False):
+        """Does an 'ls' like search in the pandas dataframe on 'datakey'
+            and returns a list of just the filenames that matched.
+        cc_df = cloudcatalog df from an earlier search
+        pattern = a normal regex pattern, e.g. '*tha_l2_fft_202501*_v*.cdf'
+        use_ basename (boolean), if given, operates on filenames, not full paths
+        """
+        values = (
+            cc_df["datakey"].str.rsplit("/", n=1).str[-1]
+            if use_basename
+            else cc_df["datakey"]
+        )
+        mask = values.apply(lambda value: fnmatch.fnmatch(value, pattern))
+        return cc_df.loc[mask, "datakey"].tolist()
 
     @staticmethod
     def stream(
