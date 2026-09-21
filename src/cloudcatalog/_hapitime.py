@@ -1,4 +1,5 @@
 """Functions for manipulating HAPI times (restricted ISO 8601 strings)."""
+
 import re
 import time
 
@@ -7,6 +8,7 @@ import isodate
 import numpy as np
 
 from hapiclient.util import error, log
+
 
 def hapitime_reformat(form_to_match, given_form, logging=False):
     """Reformat a given HAPI time to match format of another HAPI time.
@@ -22,9 +24,9 @@ def hapitime_reformat(form_to_match, given_form, logging=False):
     ::
 
         start = hapitime_reformat(data['Time'][0], start)
-    
+
     Then subset using
-    
+
     ::
 
         data = data[data['Time'] >= start]
@@ -41,10 +43,10 @@ def hapitime_reformat(form_to_match, given_form, logging=False):
 
     """
 
-    log('ref:       {}'.format(form_to_match), {'logging': logging})
-    log('given:     {}'.format(given_form), {'logging': logging})
+    log("ref:       {}".format(form_to_match), {"logging": logging})
+    log("given:     {}".format(given_form), {"logging": logging})
 
-    if 'T' in given_form:
+    if "T" in given_form:
         dt_given = isodate.parse_datetime(given_form)
     else:
         # Remove trailing Z b/c parse_date does not implement of date with
@@ -54,40 +56,42 @@ def hapitime_reformat(form_to_match, given_form, logging=False):
     # Get format string, e.g., %Y-%m-%dT%H
     format_ref = hapitime_format_str([form_to_match])
 
-    if '%f' in format_ref:
-        form_to_match = form_to_match.strip('Z')
-        form_to_match_fractional = form_to_match.split('.')[-1]
-        form_to_match = ''.join(form_to_match.split('.')[:-1])
+    if "%f" in format_ref:
+        form_to_match = form_to_match.strip("Z")
+        form_to_match_fractional = form_to_match.split(".")[-1]
+        form_to_match = "".join(form_to_match.split(".")[:-1])
 
-        given_form_fractional = '000000000'
+        given_form_fractional = "000000000"
         given_form_fmt = hapitime_format_str([given_form])
-        given_form = given_form.strip('Z')
+        given_form = given_form.strip("Z")
 
-        if '%f' in given_form_fmt:
-            given_form_fractional = given_form.split('.')[-1]
-            given_form = ''.join(given_form.split('.')[:-1])
+        if "%f" in given_form_fmt:
+            given_form_fractional = given_form.split(".")[-1]
+            given_form = "".join(given_form.split(".")[:-1])
 
-        converted = hapitime_reformat(form_to_match+'Z', given_form+'Z')
-        converted = converted.strip('Z')
-        
-        converted_fractional = '{:0<{}.{}}'.format(given_form_fractional, 
-                                                   len(form_to_match_fractional),
-                                                   len(form_to_match_fractional))
-        converted = converted + '.' + converted_fractional
+        converted = hapitime_reformat(form_to_match + "Z", given_form + "Z")
+        converted = converted.strip("Z")
 
-        if 'Z' in format_ref:
-            return converted + 'Z'
-        
+        converted_fractional = "{:0<{}.{}}".format(
+            given_form_fractional,
+            len(form_to_match_fractional),
+            len(form_to_match_fractional),
+        )
+        converted = converted + "." + converted_fractional
+
+        if "Z" in format_ref:
+            return converted + "Z"
+
         return converted
 
     converted = dt_given.strftime(format_ref)
-    
-    if len(converted) > len(form_to_match):
-        converted = converted[0:len(form_to_match)-1] + "Z"
 
-    log('converted: {}'.format(converted), {'logging': logging})
-    log('ref fmt:   {}'.format(format_ref), {'logging': logging})
-    log('----', {'logging': logging})
+    if len(converted) > len(form_to_match):
+        converted = converted[0 : len(form_to_match) - 1] + "Z"
+
+    log("converted: {}".format(converted), {"logging": logging})
+    log("ref fmt:   {}".format(format_ref), {"logging": logging})
+    log("----", {"logging": logging})
 
     return converted
 
@@ -115,10 +119,10 @@ def hapitime_format_str(Time):
     # If h=True then hour given.
     # If hm=True, then hour and minute given.
     # If hms=True, them hour, minute, and second given.
-    (h, hm, hms) = (False, False, False)
+    h, hm, hms = (False, False, False)
 
     if len(Time[0]) == 4 or (len(Time[0]) == 5 and Time[0][-1] == "Z"):
-        fmt = '%Y'
+        fmt = "%Y"
     elif re.match(r"[0-9]{4}-[0-9]{3}", Time[0]):
         # YYYY-DOY format
         fmt = "%Y-%j"
@@ -143,7 +147,7 @@ def hapitime_format_str(Time):
         # TODO: Also check for invalid time string lengths. Use JSON schema
         # regular expressions for allowed versions of ISO 8601.
         # https://github.com/hapi-server/verifier-nodejs/tree/master/schemas
-        error('First time value %s is not a valid HAPI Time' % Time[0])
+        error("First time value %s is not a valid HAPI Time" % Time[0])
 
     if h:
         fmt = fmt + "T%H"
@@ -169,21 +173,21 @@ def hapitime2datetime(Time, **kwargs):
     A HAPI-compliant server represents time as an ISO 8601 string
     (with several constraints - see the `HAPI specification
     <https://github.com/hapi-server/data-specification/blob/master/hapi-dev/HAPI-data-access-spec-dev.md#representation-of-time>`_)
-    
+
     `hapi()` reads these time strings into a NumPy array of Python byte literals.
     This function converts these byte literals to Python datetime objects.
-    
+
     Typical usage:
-    
+
     ::
-    
+
         data = hapi(...) # Get data
         DateTimes = hapitime2datetime(data['Time']) # Convert
-    
-    
+
+
     All HAPI time strings must have a trailing Z. This function only checks the
     first element in Time array for compliance.
-    
+
     Parameter
     ---------
     Time:
@@ -193,30 +197,30 @@ def hapitime2datetime(Time, **kwargs):
         - A list of HAPI timestamp strings
         - A HAPI timestamp byte literal
         - A HAPI timestamp strings
-    
+
     Returns
     -------
     A NumPy array Python of datetime objects with length = len(Time)
-    
+
     Examples
     --------
     All of the following return
-    
+
     ::
-    
+
         array([datetime.datetime(1970, 1, 1, 0, 0, tzinfo=<UTC>)], dtype=object)
-    
+
     ::
-    
+
         from hapiclient.hapitime import hapitime2datetime
         import numpy as np
-    
+
         hapitime2datetime(np.array([b'1970-01-01T00:00:00.000Z']))  # array([datetime.datetime(1970, 1, 1, 0, 0, tzinfo=<UTC>)], dtype=object)
         hapitime2datetime(np.array(['1970-01-01T00:00:00.000Z']))
-    
+
         hapitime2datetime([b'1970-01-01T00:00:00.000Z'])
         hapitime2datetime(['1970-01-01T00:00:00.000Z'])
-    
+
         hapitime2datetime([b'1970-01-01T00:00:00.000Z'])
         hapitime2datetime('1970-01-01T00:00:00.000Z')
     """
@@ -225,17 +229,20 @@ def hapitime2datetime(Time, **kwargs):
     try:
         # Python 2
         import pytz
+
         tzinfo = pytz.UTC
     except:
         tzinfo = datetime.timezone.utc
 
     if type(Time) == list:
         Time = np.asarray(Time)
-        if not all(list( map(lambda x: type(x) in [np.str_, np.bytes_, str, bytes], Time) )):
+        if not all(
+            list(map(lambda x: type(x) in [np.str_, np.bytes_, str, bytes], Time))
+        ):
             raise ValueError
 
     allow_missing_Z = False
-    if 'allow_missing_Z' in kwargs and kwargs['allow_missing_Z'] == True:
+    if "allow_missing_Z" in kwargs and kwargs["allow_missing_Z"] == True:
         allow_missing_Z = True
 
     opts = kwargs.copy()
@@ -247,7 +254,7 @@ def hapitime2datetime(Time, **kwargs):
         Time = np.asarray([Time])
 
     if Time.size == 0:
-        error('Time array is empty.' + '\n')
+        error("Time array is empty." + "\n")
         return
 
     reshape = False
@@ -258,17 +265,18 @@ def hapitime2datetime(Time, **kwargs):
 
     if type(Time[0]) == np.bytes_:
         try:
-            Time = Time.astype('U')
+            Time = Time.astype("U")
         except:
-            error('Problem with time data. First value: ' + str(Time[0]) + '\n')
+            error("Problem with time data. First value: " + str(Time[0]) + "\n")
             return
 
     tic = time.time()
 
-
     if Time[0][-1] != "Z" and allow_missing_Z == False:
-        error("HAPI Times must have trailing Z. First element of input " + \
-              "Time array does not have trailing Z.")
+        error(
+            "HAPI Times must have trailing Z. First element of input "
+            + "Time array does not have trailing Z."
+        )
 
     try:
         # This is the fastest conversion option. But it will fail on YYYY-DOY
@@ -282,9 +290,13 @@ def hapitime2datetime(Time, **kwargs):
         # is the reason for the call to tz_convert(tzinfo).
         # TODO: Use hapitime_format_str() and pass this as format=...
         Timeo = Time[0]
-        pandas_major_version = int(pandas.__version__.split('.')[0])
+        pandas_major_version = int(pandas.__version__.split(".")[0])
         if pandas_major_version < 2:
-            Time = pandas.to_datetime(Time, infer_datetime_format=True).tz_convert(tzinfo).to_pydatetime()
+            Time = (
+                pandas.to_datetime(Time, infer_datetime_format=True)
+                .tz_convert(tzinfo)
+                .to_pydatetime()
+            )
         else:
             Time = pandas.to_datetime(Time).tz_convert(tzinfo).to_pydatetime()
         if reshape:
@@ -295,11 +307,10 @@ def hapitime2datetime(Time, **kwargs):
     except:
         log("Pandas processing failed, first time = %s" % Time[0], opts)
 
-
     # Convert from Python byte literals to unicode strings
     # https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.astype.html
     # https://www.b-list.org/weblog/2017/sep/05/how-python-does-unicode/
-    Time = Time.astype('U')
+    Time = Time.astype("U")
     # The new Time variable requires 4x more memory.
     # Could save memory at cost of speed by decoding at each iteration below, e.g.
     # Time[i] -> Time[i].decode('utf-8')
@@ -318,14 +329,21 @@ def hapitime2datetime(Time, **kwargs):
             pythonDateTime[i] = datetime.strptime(Time[i], fmt).replace(tzinfo=tzinfo)
     except:
         if parse_error:
-            error('Could not parse time value ' + Time[i] + ' using ' + fmt)
+            error("Could not parse time value " + Time[i] + " using " + fmt)
         else:
-            error("HAPI Times must have trailing Z. Time[" + str(i) + "] = " \
-                  + Time[i] + " does not have trailing Z.")
+            error(
+                "HAPI Times must have trailing Z. Time["
+                + str(i)
+                + "] = "
+                + Time[i]
+                + " does not have trailing Z."
+            )
 
     toc = time.time() - tic
-    log("Manual processing time = %.4fs, Input = %s, fmt = %s" % \
-        (toc, Time[0], fmt), opts)
+    log(
+        "Manual processing time = %.4fs, Input = %s, fmt = %s" % (toc, Time[0], fmt),
+        opts,
+    )
 
     if reshape:
         pythonDateTime = np.reshape(pythonDateTime, shape)
@@ -343,7 +361,7 @@ def datetime2hapitime(dts):
         import datetime
         dts = [datetime.datetime(2000, 1, 1), datetime.datetime(2000, 1, 2)]
         hapi_times = datetime2hapitime(dts)
-        print(hapi_times) 
+        print(hapi_times)
         # ['2000-01-01T00:00:00.000000Z', '2000-01-02T00:00:00.000000Z']
 
     Parameter
@@ -363,7 +381,7 @@ def datetime2hapitime(dts):
         single = True
         dts = [dts]
 
-    hapi_times = [dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ') for dt in dts]
+    hapi_times = [dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ") for dt in dts]
 
     if single == True:
         return hapi_times[0]
