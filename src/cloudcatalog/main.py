@@ -19,6 +19,10 @@ stop_date = '2007-03-01T00:00:00Z'
 myfiles = fr.request_cloud_catalog(
               fr_id, start_date=start_date, end_date=end_date
           )
+#OR
+myfiles = fr.hapi_request_cloud_catalog(
+              fr_id, start_date=start_date, end_date=end_date
+          )
 """
 
 from io import BytesIO
@@ -34,6 +38,7 @@ import re
 import requests
 import dateutil
 import pandas as pd
+import numpy as np
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
@@ -42,6 +47,108 @@ from botocore.client import Config
 To support other clouds, add code to fetch_S3 and s3url_to_https, and
 modify the variable bucket_prefix in class CloudCatalog.
 """
+
+
+def hapi_metadata(dataid: str, server=None, catobj=None) -> dict:
+    """
+    Create minimal HAPI-style metadata for a CloudCatalog dataset.
+
+    Parameters
+    ----------
+    dataid : str
+        CloudCatalog dataset ID.
+    EITHER ONE OF:
+    server : CloudCatalog
+        the toplevel bucket holding a valid CloudCatalog catalog.json
+    OR
+    catobj : CloudCatalog
+        An initialized CloudCatalog instance.
+
+    Returns
+    -------
+    dict
+        HAPI-compatible metadata suitable for describing the structured-array
+        output of ``request_cloud_catalog()``.
+
+    Raises
+    ------
+    KeyError
+        If ``dataid`` is not present in the CloudCatalog.
+    ValueError
+        If required catalog-entry metadata is missing.
+    """
+    if not catobj:
+        catobj = CloudCatalog(server)
+    entry = catobj.get_entry(dataid)
+    if entry is None:
+        raise KeyError(f"Dataset not found in CloudCatalog: {dataid}")
+
+    required = ("id", "title", "start", "stop")
+    missing = [key for key in required if key not in entry]
+    if missing:
+        raise ValueError(
+            f"CloudCatalog entry for {dataid!r} is missing required fields: "
+            f"{missing}"
+        )
+
+    return {
+        "HAPI": "3.1",
+        "status": {
+            "code": 1200,
+            "message": "OK",
+        },
+        "id": entry["id"],
+        "title": entry["title"],
+        "startDate": entry["start"],
+        "stopDate": entry["stop"],
+        "parameters": [
+            {
+                "name": "start",
+                "description": "Start time of the cataloged data file.",
+                "type": "isotime",
+                "length": 30,
+                "units": "UTC",
+                "fill": None,
+            },
+            {
+                "name": "stop",
+                "description": "Stop time of the cataloged data file.",
+                "type": "isotime",
+                "length": 30,
+                "units": "UTC",
+                "fill": None,
+            },
+            {
+                "name": "datakey",
+                "description": "S3 or HTTP URI of the cataloged data file.",
+                "type": "string",
+                # HAPI's CSV parser needs a declared string width.
+                "length": 2048,
+                "fill": "",
+            },
+            {
+                "name": "filesize",
+                "description": "Size of the cataloged data file.",
+                "type": "integer",
+                "units": "byte",
+                "fill": -1,
+            },
+            {
+                "name": "filesize",
+                "description": "Size of the cataloged data file.",
+                "type": "integer",
+                "units": "byte",
+                "fill": -1,
+            },
+        ],
+    }
+
+
+def hapi_cloudcatalog(server, dataid, start, stop):
+    catobj = CloudCatalog(server)
+    meta = hapi_metadata(dataid, catobj=catobj)
+    df = catobj.request_cloud_catalog(dataid, start, stop)
+    return df, meta
 
 
 # Added handler that first tries S3 anonymous, then tries https/egreess
@@ -680,6 +787,193 @@ class CloudCatalog:
             else:
                 year_start_date = min(catalog_year_start_date, start_date.year)
         return year_start_date
+
+    def hapi_request_cloud_catalog(
+        self,
+        catalog_id: str,
+        start_date: Optional[str] = None,
+        stop_date: Optional[str] = None,
+        overwrite: bool = False,
+    ) -> np.ndarray:
+        """
+        Request dataset file-catalog records for a time range.
+
+        Returns
+        -------
+        numpy.ndarray
+            A HAPI-style NumPy structured array. Each field corresponds to a
+            catalog-index column, as produced by HAPI CSV parsing.
+
+        Notes
+        -----
+        The returned array is equivalent in structure to the arrays returned by
+        ``_parse_csv()`` and ``_parse_csv_missing_length()`` in hapi_get.py:
+        a one-dimensional structured ndarray whose named fields are catalog
+        columns.
+        """
+
+        def empty_result() -> np.ndarray:
+            return np.array(
+                [],
+                dtype=[
+                    ("start", "U32"),
+                    ("stop", "U32"),
+                    ("datakey", "U1024"),
+                    ("filesize", "i8"),
+                ],
+            )
+
+        # Convert supplied ISO-8601 values to datetime objects.
+        start_dt = self.date2datetime(start_date)
+        stop_dt = self.date2datetime(stop_date)
+
+        if stop_dt < start_dt:
+            raise ValueError(
+                f"start_date ({start_dt}) must be equal or less than "
+                f"stop_date ({stop_dt})."
+            )
+
+        entry = self.get_entry(catalog_id)
+        if entry is None:
+            return empty_result()
+
+        eid = entry["id"]
+        loc = entry["index"]
+        catalog_start_date = entry["start"]
+        catalog_stop_date = entry["stop"]
+        ndxformat = "csv"
+
+        # Optional local cache directory, retaining existing behavior.
+        if self.cache_folder is None:
+            path = None
+        else:
+            path = os.path.join(self.cache_folder, catalog_id)
+            os.makedirs(path, exist_ok=True)
+
+        year_start_date = self.year_range(catalog_start_date, start_dt, direction="max")
+        year_stop_date = self.year_range(catalog_stop_date, stop_dt, direction="min")
+
+        # If the index location is an S3 URL, extract its bucket/key prefix.
+        bucket_name = self.bucket_name
+        if not loc.startswith("http"):
+            bucket_name = loc[5:].split("/", 1)[0]
+            loc = loc[len(bucket_name) + 6 :]
+
+        frames = []
+
+        for year in range(year_start_date, year_stop_date + 1):
+            filename = f"{eid}_{year}.{ndxformat}"
+
+            if path is None:
+                filepath = None
+            else:
+                filepath = os.path.join(path, filename)
+
+            # Reuse cached yearly index unless overwrite was requested.
+            if filepath is not None and os.path.exists(filepath) and not overwrite:
+                index_source = filepath
+            else:
+                index_url = f"s3://{bucket_name}/{loc.rstrip('/')}/{filename}"
+
+                raw = fetch_S3orURL(index_url, rawbytes=True)
+                if raw is None:
+                    continue
+
+                if isinstance(raw, bytes):
+                    raw = io.BytesIO(raw)
+
+                if filepath is not None:
+                    with open(filepath, "wb") as fout:
+                        fout.write(raw.getvalue())
+                    index_source = filepath
+                else:
+                    raw.seek(0)
+                    index_source = raw
+
+            try:
+                frame = pd.read_csv(index_source)
+            except (pd.errors.ParserError, OSError, ValueError):
+                continue
+
+            if frame.empty:
+                continue
+
+            # Normalize index-column names according to CloudCatalog conventions.
+            if str(frame.columns[0]).startswith("# "):
+                frame.columns.values[0] = str(frame.columns[0])[2:]
+
+            required_positions = {
+                "start": 0,
+                "stop": 1,
+                "datakey": 2,
+                "filesize": 3,
+            }
+
+            for field, position in required_positions.items():
+                if field not in frame.columns and len(frame.columns) > position:
+                    frame.rename(
+                        columns={frame.columns[position]: field},
+                        inplace=True,
+                    )
+
+            if not {"start", "stop", "datakey", "filesize"}.issubset(frame.columns):
+                continue
+
+            frames.append(frame)
+
+        if not frames:
+            return empty_result()
+
+        catalog_df = pd.concat(frames, ignore_index=True)
+
+        # HAPI-like time filtering: files overlap [start_dt, stop_dt).
+        catalog_df["start"] = pd.to_datetime(
+            catalog_df["start"], utc=True, errors="coerce"
+        ).dt.tz_localize(None)
+
+        catalog_df["stop"] = pd.to_datetime(
+            catalog_df["stop"], utc=True, errors="coerce"
+        ).dt.tz_localize(None)
+
+        catalog_df = catalog_df.dropna(subset=["start", "stop"])
+        catalog_df = catalog_df[
+            (catalog_df["stop"] >= start_dt) & (catalog_df["start"] < stop_dt)
+        ].copy()
+
+        if catalog_df.empty:
+            return empty_result()
+
+        # Serialize times as HAPI-friendly ISO-8601 UTC strings.
+        catalog_df["start"] = catalog_df["start"].dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        catalog_df["stop"] = catalog_df["stop"].dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        catalog_df["datakey"] = catalog_df["datakey"].fillna("").astype(str)
+        catalog_df["filesize"] = (
+            pd.to_numeric(
+                catalog_df["filesize"],
+                errors="coerce",
+            )
+            .fillna(-1)
+            .astype(np.int64)
+        )
+
+        # Equivalent to the structured-array output produced by HAPI CSV parsers.
+        dtype = np.dtype(
+            [
+                ("start", "U27"),
+                ("stop", "U27"),
+                ("datakey", f"U{max(1, catalog_df['datakey'].str.len().max())}"),
+                ("filesize", "i8"),
+            ]
+        )
+
+        data = np.empty(len(catalog_df), dtype=dtype)
+        data["start"] = catalog_df["start"].to_numpy()
+        data["stop"] = catalog_df["stop"].to_numpy()
+        data["datakey"] = catalog_df["datakey"].to_numpy()
+        data["filesize"] = catalog_df["filesize"].to_numpy()
+
+        return data
 
     def request_cloud_catalog(
         self,
